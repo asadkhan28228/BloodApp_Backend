@@ -67,10 +67,15 @@ namespace BloodDonationAPI.API.Controllers
         [HttpGet("community")]
         public async Task<IActionResult> GetCommunityNotifications()
         {
+            var userId = GetCurrentUserId();
+            if (userId == null)
+                return Unauthorized();
+
             var notifications =
                 await _notificationService.GetCommunityNotificationsAsync();
 
-            return Ok(notifications);
+            // A user should not receive their own community alert back as a notification.
+            return Ok(notifications.Where(n => n.ReporterUid != userId.Value));
         }
 
         // ==========================================

@@ -67,7 +67,7 @@ namespace BloodDonationAPI.BLL.Services
 
         public async Task<List<BloodRequestDto>> GetAllAsync()
         {
-            var requests =await _bloodRequestRepository.GetAllAsync();
+            var requests = await _bloodRequestRepository.GetAllAsync();
 
             return requests.Select(MapToDto).ToList();
         }
@@ -78,7 +78,7 @@ namespace BloodDonationAPI.BLL.Services
 
         public async Task<List<BloodRequestDto>> GetMyRequestsAsync(Guid currentUserId)
         {
-            var requests =await _bloodRequestRepository.GetByReporterAsync(currentUserId);
+            var requests = await _bloodRequestRepository.GetByReporterAsync(currentUserId);
 
             return requests.Select(MapToDto).ToList();
         }
@@ -89,7 +89,7 @@ namespace BloodDonationAPI.BLL.Services
 
         public async Task<List<BloodRequestDto>> GetPendingAsync()
         {
-            var requests =await _bloodRequestRepository.GetPendingAsync();
+            var requests = await _bloodRequestRepository.GetPendingAsync();
 
             return requests.Select(MapToDto).ToList();
         }
@@ -98,13 +98,13 @@ namespace BloodDonationAPI.BLL.Services
         // CREATE BLOOD REQUEST
         // ==========================================
 
-        public async Task<BloodRequestDto?> CreateAsync(CreateBloodRequestDto dto,Guid currentUserId)
+        public async Task<BloodRequestDto?> CreateAsync(CreateBloodRequestDto dto, Guid currentUserId)
         {
             // ------------------------------------------
             // Find logged-in user
             // ------------------------------------------
 
-            var user =await _userRepository.GetByIdAsync(currentUserId);
+            var user = await _userRepository.GetByIdAsync(currentUserId);
 
             if (user == null)
             {

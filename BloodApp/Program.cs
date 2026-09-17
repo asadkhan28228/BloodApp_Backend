@@ -12,13 +12,15 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// =====================================================
+// CONTROLLERS + OPENAPI
+// =====================================================
 
 builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
 
+// =====================================================
 // DATABASE
 // =====================================================
 
@@ -30,17 +32,18 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 
 // =====================================================
-// CONTROLLERS
-// =====================================================
-
-builder.Services.AddControllers();
-
-
-// =====================================================
 // SIGNALR
 // =====================================================
 
 builder.Services.AddSignalR();
+
+
+// =====================================================
+// HTTP CLIENT
+// Required by SignalRNotificationPublisher for Expo Push
+// =====================================================
+
+builder.Services.AddHttpClient();
 
 
 // =====================================================
@@ -56,89 +59,174 @@ if (string.IsNullOrWhiteSpace(jwtKey))
     );
 }
 
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme =
-        JwtBearerDefaults.AuthenticationScheme;
-
-    options.DefaultChallengeScheme =
-        JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    options.TokenValidationParameters = new TokenValidationParameters
+builder.Services
+    .AddAuthentication(options =>
     {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
+        options.DefaultAuthenticateScheme =
+            JwtBearerDefaults.AuthenticationScheme;
 
-        ValidIssuer = builder.Configuration["Jwt:Issuer"],
-        ValidAudience = builder.Configuration["Jwt:Audience"],
-
-        IssuerSigningKey =
-            new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(jwtKey)
-            ),
-
-        ClockSkew = TimeSpan.Zero
-    };
-
-    // =================================================
-    // SIGNALR JWT SUPPORT
-    // =================================================
-
-    options.Events = new JwtBearerEvents
+        options.DefaultChallengeScheme =
+            JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(options =>
     {
-        OnMessageReceived = context =>
-        {
-            var accessToken =
-                context.Request.Query["access_token"];
-
-            var path =
-                context.HttpContext.Request.Path;
-
-            if (!string.IsNullOrEmpty(accessToken) &&
-                path.StartsWithSegments("/notificationHub"))
+        options.TokenValidationParameters =
+            new TokenValidationParameters
             {
-                context.Token = accessToken;
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+
+                ValidIssuer =
+                    builder.Configuration["Jwt:Issuer"],
+
+                ValidAudience =
+                    builder.Configuration["Jwt:Audience"],
+
+                IssuerSigningKey =
+                    new SymmetricSecurityKey(
+                        Encoding.UTF8.GetBytes(jwtKey)
+                    ),
+
+                ClockSkew = TimeSpan.Zero
+            };
+
+        // =============================================
+        // SIGNALR JWT SUPPORT
+        // =============================================
+
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken =
+                    context.Request.Query["access_token"];
+
+                var path =
+                    context.HttpContext.Request.Path;
+
+                // SignalR sends JWT through query string
+                if (!string.IsNullOrEmpty(accessToken) &&
+                    path.StartsWithSegments("/notificationHub"))
+                {
+                    context.Token = accessToken;
+                }
+
+                return Task.CompletedTask;
             }
+        };
+    });
 
-            return Task.CompletedTask;
-        }
-    };
-});
 
 // =====================================================
-// DEPENDENCY INJECTION — REPOSITORIES & SERVICES
+// REPOSITORIES
 // =====================================================
 
-builder.Services.AddScoped<IUserRepository, UserRepository>();
-builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
-builder.Services.AddScoped<IBloodRequestRepository, BloodRequestRepository>();
-builder.Services.AddScoped<ICommunityNotificationRepository,CommunityNotificationRepository>();
-builder.Services.AddScoped<IBloodBatchRepository, BloodBatchRepository>();
-builder.Services.AddScoped<IBloodInventoryRepository,BloodInventoryRepository>();
-builder.Services.AddScoped<IEmergencyRequestRepository,EmergencyRequestRepository>();
-builder.Services.AddScoped<IEmergencyResponseRepository,EmergencyResponseRepository>();
-builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
-builder.Services.AddScoped<IBloodBankSettingRepository,BloodBankSettingRepository>();
-builder.Services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
-builder.Services.AddScoped<IEmergencyResponseRepository, EmergencyResponseRepository>();
+builder.Services.AddScoped<
+    IUserRepository,
+    UserRepository>();
 
-builder.Services.AddHostedService<BloodRequestExpiryService>();
-builder.Services.AddScoped<IEmergencyResponseService, EmergencyResponseService>();
-builder.Services.AddScoped<IBloodBankSettingService,BloodBankSettingService>();
-builder.Services.AddScoped<INotificationService, NotificationService>();
-builder.Services.AddScoped<ICommunityNotificationService,CommunityNotificationService>();
-builder.Services.AddScoped<IBloodRequestService, BloodRequestService>();
-builder.Services.AddScoped<IJwtService, JwtService>();
-builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IBloodInventoryService,BloodInventoryService>();
-builder.Services.AddScoped<IBloodBatchService,BloodBatchService>();
-builder.Services.AddScoped<INotificationPublisher,SignalRNotificationPublisher>();
-builder.Services.AddScoped<IBloodInventoryRepository, BloodInventoryRepository>();
-builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<
+    IRefreshTokenRepository,
+    RefreshTokenRepository>();
+
+builder.Services.AddScoped<
+    IBloodRequestRepository,
+    BloodRequestRepository>();
+
+builder.Services.AddScoped<
+    ICommunityNotificationRepository,
+    CommunityNotificationRepository>();
+
+builder.Services.AddScoped<
+    IBloodBatchRepository,
+    BloodBatchRepository>();
+
+builder.Services.AddScoped<
+    IBloodInventoryRepository,
+    BloodInventoryRepository>();
+
+builder.Services.AddScoped<
+    IEmergencyRequestRepository,
+    EmergencyRequestRepository>();
+
+builder.Services.AddScoped<
+    IEmergencyResponseRepository,
+    EmergencyResponseRepository>();
+
+builder.Services.AddScoped<
+    INotificationRepository,
+    NotificationRepository>();
+
+builder.Services.AddScoped<
+    IBloodBankSettingRepository,
+    BloodBankSettingRepository>();
+
+builder.Services.AddScoped<
+    IPasswordResetTokenRepository,
+    PasswordResetTokenRepository>();
+
+
+// =====================================================
+// SERVICES
+// =====================================================
+
+builder.Services.AddHostedService<
+    BloodRequestExpiryService>();
+
+builder.Services.AddScoped<
+    IEmergencyResponseService,
+    EmergencyResponseService>();
+
+builder.Services.AddScoped<
+    IBloodBankSettingService,
+    BloodBankSettingService>();
+
+builder.Services.AddScoped<
+    INotificationService,
+    NotificationService>();
+
+builder.Services.AddScoped<
+    ICommunityNotificationService,
+    CommunityNotificationService>();
+
+builder.Services.AddScoped<
+    IBloodRequestService,
+    BloodRequestService>();
+
+builder.Services.AddScoped<
+    IJwtService,
+    JwtService>();
+
+builder.Services.AddScoped<
+    IAuthService,
+    AuthService>();
+
+builder.Services.AddScoped<
+    IBloodInventoryService,
+    BloodInventoryService>();
+
+builder.Services.AddScoped<
+    IBloodBatchService,
+    BloodBatchService>();
+
+builder.Services.AddScoped<
+    IUserService,
+    UserService>();
+
+builder.Services.AddScoped<IEmergencyService, EmergencyService>();
+
+
+// =====================================================
+// NOTIFICATION PUBLISHER
+// SignalR + Expo Push Notification
+// =====================================================
+
+builder.Services.AddScoped<
+    INotificationPublisher,
+    SignalRNotificationPublisher>();
+
 
 // =====================================================
 // AUTHORIZATION
@@ -163,18 +251,34 @@ builder.Services.AddCors(options =>
 });
 
 
+// =====================================================
+// BUILD APPLICATION
+// =====================================================
+
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+
+// =====================================================
+// OPENAPI
+// =====================================================
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
-
 }
 
-// HTTPS redirection is intentionally disabled for local mobile development.
-// The Expo client reaches the API over the PC LAN address (HTTP :5097).
-// Enable HTTPS redirection again when deploying behind a trusted HTTPS endpoint.
+
+// =====================================================
+// NOTE ABOUT HTTPS
+// =====================================================
+
+// HTTPS redirection is intentionally disabled
+// for local React Native / Expo development.
+//
+// Mobile device connects using:
+// http://192.168.1.4:5097
+//
+// Enable HTTPS when deploying to production.
 
 
 // =====================================================
@@ -216,11 +320,13 @@ app.MapControllers();
 // SIGNALR HUB
 // =====================================================
 
-app.MapHub<NotificationHub>("/notificationHub");
+app.MapHub<NotificationHub>(
+    "/notificationHub"
+);
 
 
 // =====================================================
-// RUN
+// RUN APPLICATION
 // =====================================================
 
 app.Run();

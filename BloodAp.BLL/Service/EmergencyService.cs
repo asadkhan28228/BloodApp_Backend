@@ -1094,8 +1094,8 @@ namespace BloodDonationAPI.BLL.Services
                     privateNotification);
 
             // Emergency response updates are private.
-            // They are saved above and pushed only to the reporter's SignalR group.
-
+            // They are stored in Notifications and sent only to the reporter
+            // through the reporter's SignalR user group.
         }
 
         // =========================================================

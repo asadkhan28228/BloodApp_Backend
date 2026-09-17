@@ -12,17 +12,23 @@ namespace BloodDonationAPI.BLL.Services
         private readonly IJwtService _jwtService;
         private readonly IRefreshTokenRepository _refreshTokenRepository;
         private readonly IPasswordResetTokenRepository _passwordResetTokenRepository;
+        private readonly ICommunityNotificationRepository _communityNotificationRepository;
+        private readonly INotificationPublisher _notificationPublisher;
 
         public AuthService(
             IUserRepository userRepository,
             IJwtService jwtService,
             IRefreshTokenRepository refreshTokenRepository,
-            IPasswordResetTokenRepository passwordResetTokenRepository)
+            IPasswordResetTokenRepository passwordResetTokenRepository,
+            ICommunityNotificationRepository communityNotificationRepository,
+            INotificationPublisher notificationPublisher)
         {
             _userRepository = userRepository;
             _jwtService = jwtService;
             _refreshTokenRepository = refreshTokenRepository;
             _passwordResetTokenRepository = passwordResetTokenRepository;
+            _communityNotificationRepository = communityNotificationRepository;
+            _notificationPublisher = notificationPublisher;
         }
 
         // =========================================================
@@ -68,6 +74,43 @@ namespace BloodDonationAPI.BLL.Services
 
             var createdUser =
                 await _userRepository.AddAsync(user);
+
+            // Notify all OTHER users that a new donor/user joined.
+            // NotificationController already filters out community notifications
+            // whose ReporterUid is the current user's id when history is loaded.
+            try
+            {
+                var registrationNotification = new CommunityNotification
+                {
+                    Id = Guid.NewGuid(),
+                    Type = "registration",
+                    Title = "New Donor Joined 🩸",
+                    Message = string.IsNullOrWhiteSpace(createdUser.BloodType)
+                        ? $"{createdUser.FullName} has joined the BloodCare community."
+                        : $"{createdUser.FullName} has registered as a {createdUser.BloodType} blood donor.",
+                    Unread = true,
+                    Icon = "person-add-outline",
+                    Color = "#DC2626",
+                    ReporterUid = createdUser.Id,
+                    ReporterName = createdUser.FullName,
+                    BloodType = createdUser.BloodType,
+                    Location = createdUser.Location,
+                    PhoneNumber = createdUser.PhoneNumber,
+                    Status = "registered",
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                await _communityNotificationRepository
+                    .AddAsync(registrationNotification);
+
+                await _notificationPublisher
+                    .PublishCommunityNotificationAsync(registrationNotification);
+            }
+            catch (Exception ex)
+            {
+                // Registration must remain successful even if notification delivery fails.
+                Console.WriteLine($"Registration notification failed: {ex.Message}");
+            }
 
             return await CreateAuthResponseAsync(createdUser);
         }
