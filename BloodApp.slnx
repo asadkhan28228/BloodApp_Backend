@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="BloodAp.BLL/BloodApp.BLL.csproj" />
+  <Project Path="BloodApp.DAL/BloodApp.DAL.csproj" />
+  <Project Path="BloodApp/BloodApp.PL.csproj" />
+</Solution>
