@@ -24,7 +24,7 @@ namespace BloodDonationAPI.API.Controllers
         // ============================================
 
         [HttpGet]
-        [Authorize(Roles = "admin")]
+        [Authorize(Roles = "admin,bloodBankAdmin")]
         public async Task<IActionResult> GetAll()
         {
             var batches =

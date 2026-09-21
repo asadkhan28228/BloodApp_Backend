@@ -57,6 +57,8 @@ namespace BloodDonationAPI.DAL.Models
 
         public int DonationsCount { get; set; } = 0;
 
+        public int LivesSaved { get; set; } = 0;
+
         // ==============================
         // PROFILE
         // ==============================

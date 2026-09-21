@@ -27,13 +27,13 @@ namespace BloodDonationAPI.BLL.Services
         {
             _bloodRequestRepository = bloodRequestRepository;
 
-            _userRepository =userRepository;
+            _userRepository = userRepository;
 
-            _communityNotificationRepository =communityNotificationRepository;
+            _communityNotificationRepository = communityNotificationRepository;
 
-            _notificationPublisher =notificationPublisher;
+            _notificationPublisher = notificationPublisher;
 
-            _bloodRequestResponseRepository =bloodRequestResponseRepository;
+            _bloodRequestResponseRepository = bloodRequestResponseRepository;
 
             _notificationRepository = notificationRepository;
         }
@@ -671,7 +671,479 @@ namespace BloodDonationAPI.BLL.Services
                 .Select(MapResponseToDto)
                 .ToList();
         }
+        // ==========================================
+        // CONFIRM DONOR RESPONSE
+        // ==========================================
 
+        public async Task<BloodRequestResponseDto> ConfirmResponseAsync(
+            Guid bloodRequestId,
+            Guid responseId,
+            Guid currentUserId,
+            string currentUserRole)
+        {
+            // ------------------------------------------
+            // Find blood request
+            // ------------------------------------------
+
+            var request =
+                await _bloodRequestRepository
+                    .GetByIdAsync(bloodRequestId);
+
+            if (request == null)
+            {
+                throw new KeyNotFoundException(
+                    "Blood request not found.");
+            }
+
+            // Only requester or admin can confirm donor.
+            if (!IsAdmin(currentUserRole) &&
+                request.ReporterUid != currentUserId)
+            {
+                throw new UnauthorizedAccessException(
+                    "You are not allowed to confirm a donor for this request.");
+            }
+
+            if (request.Status.Equals(
+                    "Completed",
+                    StringComparison.OrdinalIgnoreCase) ||
+                request.Status.Equals(
+                    "Cancelled",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "This blood request is already closed.");
+            }
+
+            // ------------------------------------------
+            // Find donor response
+            // ------------------------------------------
+
+            var response =
+                await _bloodRequestResponseRepository
+                    .GetByIdAsync(responseId);
+
+            if (response == null ||
+                response.BloodRequestId != bloodRequestId)
+            {
+                throw new KeyNotFoundException(
+                    "Donor response not found.");
+            }
+
+            if (response.Status.Equals(
+                    "Completed",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "This donation has already been completed.");
+            }
+
+            if (response.Status.Equals(
+                    "Rejected",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "A rejected donor response cannot be confirmed.");
+            }
+
+            if (response.Status.Equals(
+                    "Confirmed",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "This donor has already been confirmed.");
+            }
+
+            // ------------------------------------------
+            // Check if another donor is already confirmed
+            // ------------------------------------------
+
+            var allResponses =
+                await _bloodRequestResponseRepository
+                    .GetByRequestAsync(bloodRequestId);
+
+            var alreadyConfirmed =
+                allResponses.Any(x =>
+                    x.Id != response.Id &&
+                    (
+                        x.Status.Equals(
+                            "Confirmed",
+                            StringComparison.OrdinalIgnoreCase) ||
+                        x.Status.Equals(
+                            "Completed",
+                            StringComparison.OrdinalIgnoreCase)
+                    ));
+
+            if (alreadyConfirmed)
+            {
+                throw new InvalidOperationException(
+                    "Another donor has already been confirmed for this request.");
+            }
+
+            // ------------------------------------------
+            // Confirm response
+            // ------------------------------------------
+
+            response.Status = "Confirmed";
+            response.UpdatedAt = DateTime.UtcNow;
+
+            await _bloodRequestResponseRepository
+                .UpdateAsync(response);
+
+            // Request is no longer open for new donors.
+            request.Status = "Matched";
+            request.UpdatedAt = DateTime.UtcNow;
+
+            await _bloodRequestRepository
+                .UpdateAsync(request);
+
+            // ------------------------------------------
+            // Update donor stats immediately on confirm
+            // ------------------------------------------
+
+            var donor =
+                await _userRepository
+                    .GetByIdAsync(response.DonorId);
+
+            if (donor == null)
+            {
+                throw new KeyNotFoundException(
+                    "Donor profile not found.");
+            }
+
+            donor.DonationsCount += 1;
+            donor.LivesSaved += 1;
+            donor.LastDonationDate = DateTime.UtcNow;
+            donor.UpdatedAt = DateTime.UtcNow;
+
+            await _userRepository
+                .UpdateAsync(donor);
+
+            // ------------------------------------------
+            // Notify donor
+            // ------------------------------------------
+
+            var notification = new Notification
+            {
+                Id = Guid.NewGuid(),
+
+                UserId = response.DonorId,
+
+                Type = "blood_request_confirmed",
+
+                Title = "Donation Confirmed ❤️",
+
+                Message =
+                    $"Your donation offer for {request.PatientName} " +
+                    $"has been confirmed by the requester.",
+
+                Icon = "checkmark-circle",
+
+                Color = "#16A34A",
+
+                Unread = true,
+
+                TargetScreen = "notifications",
+
+                ReferenceId = request.Id.ToString(),
+
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _notificationRepository
+                .AddAsync(notification);
+
+            await _notificationPublisher
+                .PublishUserNotificationAsync(
+                    response.DonorId,
+                    notification);
+
+            return MapResponseToDto(response);
+        }
+
+
+        // ==========================================
+        // REJECT DONOR RESPONSE
+        // ==========================================
+
+        public async Task<BloodRequestResponseDto> RejectResponseAsync(
+            Guid bloodRequestId,
+            Guid responseId,
+            Guid currentUserId,
+            string currentUserRole)
+        {
+            // ------------------------------------------
+            // Find blood request
+            // ------------------------------------------
+
+            var request =
+                await _bloodRequestRepository
+                    .GetByIdAsync(bloodRequestId);
+
+            if (request == null)
+            {
+                throw new KeyNotFoundException(
+                    "Blood request not found.");
+            }
+
+            // Only requester or admin can reject.
+            if (!IsAdmin(currentUserRole) &&
+                request.ReporterUid != currentUserId)
+            {
+                throw new UnauthorizedAccessException(
+                    "You are not allowed to reject donors for this request.");
+            }
+
+            if (request.Status.Equals(
+                    "Completed",
+                    StringComparison.OrdinalIgnoreCase) ||
+                request.Status.Equals(
+                    "Cancelled",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "This blood request is already closed.");
+            }
+
+            // ------------------------------------------
+            // Find response
+            // ------------------------------------------
+
+            var response =
+                await _bloodRequestResponseRepository
+                    .GetByIdAsync(responseId);
+
+            if (response == null ||
+                response.BloodRequestId != bloodRequestId)
+            {
+                throw new KeyNotFoundException(
+                    "Donor response not found.");
+            }
+
+            if (response.Status.Equals(
+                    "Completed",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "A completed donation cannot be rejected.");
+            }
+
+            if (response.Status.Equals(
+                    "Confirmed",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "A confirmed donor cannot be rejected from this action.");
+            }
+
+            if (response.Status.Equals(
+                    "Rejected",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "This donor response has already been rejected.");
+            }
+
+            // ------------------------------------------
+            // Reject response
+            // ------------------------------------------
+
+            response.Status = "Rejected";
+            response.UpdatedAt = DateTime.UtcNow;
+
+            await _bloodRequestResponseRepository
+                .UpdateAsync(response);
+
+            // ------------------------------------------
+            // Notify donor
+            // ------------------------------------------
+
+            var notification = new Notification
+            {
+                Id = Guid.NewGuid(),
+
+                UserId = response.DonorId,
+
+                Type = "blood_request_rejected",
+
+                Title = "Donation Response Update",
+
+                Message =
+                    $"Your donation offer for {request.PatientName} " +
+                    $"was not selected for this request.",
+
+                Icon = "information-circle",
+
+                Color = "#6B7280",
+
+                Unread = true,
+
+                TargetScreen = "notifications",
+
+                ReferenceId = request.Id.ToString(),
+
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _notificationRepository
+                .AddAsync(notification);
+
+            await _notificationPublisher
+                .PublishUserNotificationAsync(
+                    response.DonorId,
+                    notification);
+
+            return MapResponseToDto(response);
+        }
+
+
+        // ==========================================
+        // COMPLETE DONATION
+        // ==========================================
+
+        public async Task<BloodRequestResponseDto> CompleteDonationAsync(
+            Guid bloodRequestId,
+            Guid responseId,
+            Guid currentUserId,
+            string currentUserRole)
+        {
+            // ------------------------------------------
+            // Find request
+            // ------------------------------------------
+
+            var request =
+                await _bloodRequestRepository
+                    .GetByIdAsync(bloodRequestId);
+
+            if (request == null)
+            {
+                throw new KeyNotFoundException(
+                    "Blood request not found.");
+            }
+
+            // Requester or admin can complete donation.
+            if (!IsAdmin(currentUserRole) &&
+                request.ReporterUid != currentUserId)
+            {
+                throw new UnauthorizedAccessException(
+                    "You are not allowed to complete this donation.");
+            }
+
+            if (request.Status.Equals(
+                    "Cancelled",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "A cancelled blood request cannot be completed.");
+            }
+
+            // ------------------------------------------
+            // Find response
+            // ------------------------------------------
+
+            var response =
+                await _bloodRequestResponseRepository
+                    .GetByIdAsync(responseId);
+
+            if (response == null ||
+                response.BloodRequestId != bloodRequestId)
+            {
+                throw new KeyNotFoundException(
+                    "Donor response not found.");
+            }
+
+            // IMPORTANT:
+            // prevents donation count from increasing twice.
+            if (response.Status.Equals(
+                    "Completed",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "This donation has already been completed.");
+            }
+
+            if (!response.Status.Equals(
+                    "Confirmed",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "The donor must be confirmed before completing the donation.");
+            }
+
+            // ------------------------------------------
+            // Find donor
+            // ------------------------------------------
+
+            var donor =
+                await _userRepository
+                    .GetByIdAsync(response.DonorId);
+
+            if (donor == null)
+            {
+                throw new KeyNotFoundException(
+                    "Donor profile not found.");
+            }
+
+            // ------------------------------------------
+            // Complete response
+            // ------------------------------------------
+
+            response.Status = "Completed";
+            response.UpdatedAt = DateTime.UtcNow;
+
+            await _bloodRequestResponseRepository
+                .UpdateAsync(response);
+
+            // ------------------------------------------
+            // Complete blood request
+            // ------------------------------------------
+
+            request.Status = "Completed";
+            request.UpdatedAt = DateTime.UtcNow;
+
+            await _bloodRequestRepository
+                .UpdateAsync(request);
+
+            // ------------------------------------------
+            // Notify donor
+            // ------------------------------------------
+
+            var notification = new Notification
+            {
+                Id = Guid.NewGuid(),
+
+                UserId = donor.Id,
+
+                Type = "donation_completed",
+
+                Title = "Donation Completed ❤️",
+
+                Message =
+                    $"Thank you {donor.FullName}! Your blood donation " +
+                    $"for {request.PatientName} has been completed successfully.",
+
+                Icon = "heart-circle",
+
+                Color = "#DC2626",
+
+                Unread = true,
+
+                TargetScreen = "notifications",
+
+                ReferenceId = request.Id.ToString(),
+
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _notificationRepository
+                .AddAsync(notification);
+
+            await _notificationPublisher
+                .PublishUserNotificationAsync(
+                    donor.Id,
+                    notification);
+
+            return MapResponseToDto(response);
+        }
 
         // ==========================================
         // RESPONSE -> DTO
@@ -795,25 +1267,25 @@ namespace BloodDonationAPI.BLL.Services
                 // These values were originally stored as UTC, so explicitly mark
                 // them as UTC before ASP.NET serializes them to JSON. This makes
                 // the API return a timezone-aware value (with Z) to React Native.
-                            CreatedAt =
+                CreatedAt =
                 DateTime.SpecifyKind(
                     request.CreatedAt,
                     DateTimeKind.Utc),
 
-                            UpdatedAt =
+                UpdatedAt =
                 request.UpdatedAt.HasValue
                     ? DateTime.SpecifyKind(
                         request.UpdatedAt.Value,
                         DateTimeKind.Utc)
                     : null,
 
-                            ExpireAt =
+                ExpireAt =
                 request.ExpireAt.HasValue
                     ? DateTime.SpecifyKind(
                         request.ExpireAt.Value,
                         DateTimeKind.Utc)
                     : null
-                        };
+            };
         }
     }
 }

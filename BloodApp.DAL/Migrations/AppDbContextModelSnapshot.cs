@@ -726,6 +726,11 @@ namespace BloodApp.DAL.Migrations
                     b.Property<double?>("Latitude")
                         .HasColumnType("float");
 
+                    b.Property<int>("LivesSaved")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
                     b.Property<string>("Location")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");

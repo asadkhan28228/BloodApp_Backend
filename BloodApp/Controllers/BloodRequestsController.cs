@@ -1,5 +1,6 @@
 ﻿using BloodDonationAPI.BLL.DTOs.BloodRequest;
 using BloodDonationAPI.BLL.Interfaces;
+using BloodDonationAPI.DAL.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -12,11 +13,14 @@ namespace BloodDonationAPI.API.Controllers
     public class BloodRequestsController : ControllerBase
     {
         private readonly IBloodRequestService _service;
+        private readonly IBloodRequestResponseRepository _bloodRequestResponseRepository;
 
         public BloodRequestsController(
-            IBloodRequestService service)
+            IBloodRequestService service,
+            IBloodRequestResponseRepository bloodRequestResponseRepository)
         {
             _service = service;
+            _bloodRequestResponseRepository = bloodRequestResponseRepository;
         }
 
         // ==========================================
@@ -58,9 +62,39 @@ namespace BloodDonationAPI.API.Controllers
         [HttpGet("pending")]
         public async Task<IActionResult> GetPending()
         {
+            var userId = GetCurrentUserId();
+
+            if (userId == null)
+                return Unauthorized();
+
             var requests = await _service.GetPendingAsync();
 
-            return Ok(requests);
+            // If this logged-in donor previously responded to a request
+            // and the requester rejected that response, hide ONLY that
+            // request from this donor. The request remains Pending and
+            // continues to appear normally for all other eligible users.
+            var visibleRequests = new List<BloodRequestDto>();
+
+            foreach (var request in requests)
+            {
+                var myResponse =
+                    await _bloodRequestResponseRepository
+                        .GetByRequestAndDonorAsync(
+                            request.Id,
+                            userId.Value);
+
+                if (myResponse != null &&
+                    myResponse.Status.Equals(
+                        "Rejected",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                visibleRequests.Add(request);
+            }
+
+            return Ok(visibleRequests);
         }
 
         // ==========================================
@@ -335,7 +369,175 @@ namespace BloodDonationAPI.API.Controllers
 
             return null;
         }
+        // ==========================================
+        // CONFIRM DONOR RESPONSE
+        // ==========================================
 
+        [HttpPatch("{id:guid}/responses/{responseId:guid}/confirm")]
+        public async Task<IActionResult> ConfirmResponse(
+            Guid id,
+            Guid responseId)
+        {
+            var userId = GetCurrentUserId();
+
+            if (userId == null)
+                return Unauthorized();
+
+            var role = GetCurrentUserRole();
+
+            try
+            {
+                var response =
+                    await _service.ConfirmResponseAsync(
+                        id,
+                        responseId,
+                        userId.Value,
+                        role);
+
+                return Ok(new
+                {
+                    message = "Donor confirmed successfully.",
+                    response
+                });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(
+                    StatusCodes.Status403Forbidden,
+                    new
+                    {
+                        message = ex.Message
+                    });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
+
+
+        // ==========================================
+        // REJECT DONOR RESPONSE
+        // ==========================================
+
+        [HttpPatch("{id:guid}/responses/{responseId:guid}/reject")]
+        public async Task<IActionResult> RejectResponse(
+            Guid id,
+            Guid responseId)
+        {
+            var userId = GetCurrentUserId();
+
+            if (userId == null)
+                return Unauthorized();
+
+            var role = GetCurrentUserRole();
+
+            try
+            {
+                var response =
+                    await _service.RejectResponseAsync(
+                        id,
+                        responseId,
+                        userId.Value,
+                        role);
+
+                return Ok(new
+                {
+                    message = "Donor response rejected successfully.",
+                    response
+                });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(
+                    StatusCodes.Status403Forbidden,
+                    new
+                    {
+                        message = ex.Message
+                    });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
+
+
+        // ==========================================
+        // COMPLETE DONATION
+        // ==========================================
+
+        [HttpPatch("{id:guid}/responses/{responseId:guid}/complete")]
+        public async Task<IActionResult> CompleteDonation(
+            Guid id,
+            Guid responseId)
+        {
+            var userId = GetCurrentUserId();
+
+            if (userId == null)
+                return Unauthorized();
+
+            var role = GetCurrentUserRole();
+
+            try
+            {
+                var response =
+                    await _service.CompleteDonationAsync(
+                        id,
+                        responseId,
+                        userId.Value,
+                        role);
+
+                return Ok(new
+                {
+                    message = "Donation completed successfully.",
+                    response
+                });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(
+                    StatusCodes.Status403Forbidden,
+                    new
+                    {
+                        message = ex.Message
+                    });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
         // ==========================================
         // CURRENT USER ROLE
         // ==========================================

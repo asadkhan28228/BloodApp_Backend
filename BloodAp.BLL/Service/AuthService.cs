@@ -67,6 +67,7 @@ namespace BloodDonationAPI.BLL.Services
                 IsActive = true,
                 AvailableToDonate = true,
                 DonationsCount = 0,
+                LivesSaved = 0,
                 AvatarUrl = null,
                 PushToken = null,
                 CreatedAt = DateTime.UtcNow
@@ -460,6 +461,9 @@ namespace BloodDonationAPI.BLL.Services
 
                 DonationsCount =
                     user.DonationsCount,
+
+                LivesSaved =
+                    user.LivesSaved,
 
                 PushToken =
                     user.PushToken
