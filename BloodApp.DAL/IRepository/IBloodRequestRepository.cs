@@ -19,5 +19,8 @@ namespace BloodDonationAPI.DAL.Repositories
         Task UpdateAsync(BloodRequest request);
 
         Task DeleteAsync(BloodRequest request);
+
+        // Automatically remove expired requests
+        Task<int> DeleteExpiredAsync(DateTime utcNow);
     }
 }

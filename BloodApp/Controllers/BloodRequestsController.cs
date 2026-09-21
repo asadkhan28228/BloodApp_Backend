@@ -234,6 +234,93 @@ namespace BloodDonationAPI.API.Controllers
         }
 
         // ==========================================
+        // I CAN DONATE
+        // ==========================================
+
+        [HttpPost("{id:guid}/respond")]
+        public async Task<IActionResult> Respond(Guid id)
+        {
+            var userId = GetCurrentUserId();
+
+            if (userId == null)
+                return Unauthorized();
+
+            try
+            {
+                var response =
+                    await _service.RespondAsync(
+                        id,
+                        userId.Value);
+
+                if (response == null)
+                {
+                    return NotFound(new
+                    {
+                        message = "Blood request not found."
+                    });
+                }
+
+                return Ok(new
+                {
+                    message =
+                        "Your donation response has been sent successfully.",
+
+                    response
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
+
+
+        // ==========================================
+        // GET DONOR RESPONSES
+        // ==========================================
+
+        [HttpGet("{id:guid}/responses")]
+        public async Task<IActionResult> GetResponses(Guid id)
+        {
+            var userId = GetCurrentUserId();
+
+            if (userId == null)
+                return Unauthorized();
+
+            var role = GetCurrentUserRole();
+
+            try
+            {
+                var responses =
+                    await _service.GetResponsesAsync(
+                        id,
+                        userId.Value,
+                        role);
+
+                return Ok(responses);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(
+                    StatusCodes.Status403Forbidden,
+                    new
+                    {
+                        message = ex.Message
+                    });
+            }
+        }
+
+        // ==========================================
         // CURRENT USER ID
         // ==========================================
 

@@ -13,6 +13,8 @@
 
         public string? DonorPhone { get; set; }
 
+        public string? DonorLocation { get; set; }
+
         public string? BloodType { get; set; }
 
         public string Status { get; set; }

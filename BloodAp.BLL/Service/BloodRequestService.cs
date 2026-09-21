@@ -9,30 +9,33 @@ namespace BloodDonationAPI.BLL.Services
     {
         private readonly IBloodRequestRepository _bloodRequestRepository;
         private readonly IUserRepository _userRepository;
+        private readonly IBloodRequestResponseRepository _bloodRequestResponseRepository;
 
-        private readonly ICommunityNotificationRepository
-            _communityNotificationRepository;
+        private readonly INotificationRepository _notificationRepository;
 
-        private readonly INotificationPublisher
-            _notificationPublisher;
+        private readonly ICommunityNotificationRepository _communityNotificationRepository;
+
+        private readonly INotificationPublisher _notificationPublisher;
 
         public BloodRequestService(
             IBloodRequestRepository bloodRequestRepository,
             IUserRepository userRepository,
             ICommunityNotificationRepository communityNotificationRepository,
-            INotificationPublisher notificationPublisher)
+            INotificationPublisher notificationPublisher,
+            IBloodRequestResponseRepository bloodRequestResponseRepository,
+            INotificationRepository notificationRepository)
         {
-            _bloodRequestRepository =
-                bloodRequestRepository;
+            _bloodRequestRepository = bloodRequestRepository;
 
-            _userRepository =
-                userRepository;
+            _userRepository =userRepository;
 
-            _communityNotificationRepository =
-                communityNotificationRepository;
+            _communityNotificationRepository =communityNotificationRepository;
 
-            _notificationPublisher =
-                notificationPublisher;
+            _notificationPublisher =notificationPublisher;
+
+            _bloodRequestResponseRepository =bloodRequestResponseRepository;
+
+            _notificationRepository = notificationRepository;
         }
 
         // ==========================================
@@ -175,8 +178,8 @@ namespace BloodDonationAPI.BLL.Services
                 UpdatedAt =
                     DateTime.UtcNow,
 
-                //ExpireAt = DateTime.UtcNow.AddDays(1)
-                ExpireAt = DateTime.UtcNow.AddMinutes(3)
+                ExpireAt = DateTime.UtcNow.AddDays(1)
+                // ExpireAt = DateTime.UtcNow.AddMinutes(3)
             };
 
             // ------------------------------------------
@@ -442,6 +445,278 @@ namespace BloodDonationAPI.BLL.Services
         }
 
         // ==========================================
+        // RESPOND TO BLOOD REQUEST
+        // ==========================================
+
+        public async Task<BloodRequestResponseDto?> RespondAsync(
+            Guid bloodRequestId,
+            Guid donorId)
+        {
+            // ------------------------------------------
+            // Find blood request
+            // ------------------------------------------
+
+            var request =
+                await _bloodRequestRepository
+                    .GetByIdAsync(bloodRequestId);
+
+            if (request == null)
+                return null;
+
+            // Only pending requests accept donors.
+            if (!request.Status.Equals(
+                    "Pending",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "This blood request is no longer accepting donors.");
+            }
+
+            // User cannot donate to own request.
+            if (request.ReporterUid == donorId)
+            {
+                throw new InvalidOperationException(
+                    "You cannot respond to your own blood request.");
+            }
+
+            // ------------------------------------------
+            // Find donor
+            // ------------------------------------------
+
+            var donor =
+                await _userRepository
+                    .GetByIdAsync(donorId);
+
+            if (donor == null)
+            {
+                throw new InvalidOperationException(
+                    "Donor profile was not found.");
+            }
+
+            if (!donor.IsActive)
+            {
+                throw new InvalidOperationException(
+                    "Your account is currently inactive.");
+            }
+
+            if (!donor.AvailableToDonate)
+            {
+                throw new InvalidOperationException(
+                    "Your donor profile is currently marked unavailable.");
+            }
+
+            // ------------------------------------------
+            // Blood type check
+            // ------------------------------------------
+
+            if (string.IsNullOrWhiteSpace(donor.BloodType))
+            {
+                throw new InvalidOperationException(
+                    "Please add your blood type to your profile first.");
+            }
+
+            if (!string.Equals(
+                    donor.BloodType.Trim(),
+                    request.BloodType.Trim(),
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    $"This request requires {request.BloodType} blood. " +
+                    $"Your profile blood type is {donor.BloodType}.");
+            }
+
+            // ------------------------------------------
+            // Duplicate response check
+            // ------------------------------------------
+
+            var existingResponse =
+                await _bloodRequestResponseRepository
+                    .GetByRequestAndDonorAsync(
+                        bloodRequestId,
+                        donorId);
+
+            if (existingResponse != null)
+            {
+                throw new InvalidOperationException(
+                    "You have already responded to this blood request.");
+            }
+
+            // ------------------------------------------
+            // Create donor response
+            // ------------------------------------------
+
+            var response = new BloodRequestResponse
+            {
+                Id = Guid.NewGuid(),
+
+                BloodRequestId =
+                    bloodRequestId,
+
+                DonorId =
+                    donorId,
+
+                DonorName =
+                    donor.FullName,
+
+                DonorPhone =
+                    donor.PhoneNumber,
+
+                BloodType =
+                    donor.BloodType,
+
+                Status =
+                    "Pending",
+
+                CreatedAt =
+                    DateTime.UtcNow,
+
+                UpdatedAt =
+                    DateTime.UtcNow
+            };
+
+            await _bloodRequestResponseRepository
+                .AddAsync(response);
+
+            // ------------------------------------------
+            // Private notification for requester
+            // ------------------------------------------
+
+            var notification = new Notification
+            {
+                Id = Guid.NewGuid(),
+
+                UserId =
+                    request.ReporterUid,
+
+                Type =
+                    "blood_request_response",
+
+                Title =
+                    "New Blood Donor ❤️",
+
+                Message =
+                    $"{donor.FullName} ({donor.BloodType}) " +
+                    $"is willing to donate blood for {request.PatientName}.",
+
+                Icon =
+                    "heart",
+
+                Color =
+                    "#DC2626",
+
+                Unread =
+                    true,
+
+                TargetScreen =
+                    "notifications",
+
+                // Request ID is kept here so frontend can
+                // load donor responses for this request.
+                ReferenceId =
+                    request.Id.ToString(),
+
+                CreatedAt =
+                    DateTime.UtcNow
+            };
+
+            await _notificationRepository
+                .AddAsync(notification);
+
+            // ------------------------------------------
+            // Real-time private SignalR notification
+            // ------------------------------------------
+
+            await _notificationPublisher
+                .PublishUserNotificationAsync(
+                    request.ReporterUid,
+                    notification);
+
+            return MapResponseToDto(response);
+        }
+
+
+        // ==========================================
+        // GET RESPONSES FOR REQUEST
+        // ==========================================
+
+        public async Task<List<BloodRequestResponseDto>>
+            GetResponsesAsync(
+                Guid bloodRequestId,
+                Guid currentUserId,
+                string currentUserRole)
+        {
+            var request =
+                await _bloodRequestRepository
+                    .GetByIdAsync(bloodRequestId);
+
+            if (request == null)
+            {
+                throw new KeyNotFoundException(
+                    "Blood request not found.");
+            }
+
+            // Only requester/admin can see donor personal details.
+            if (!IsAdmin(currentUserRole) &&
+                request.ReporterUid != currentUserId)
+            {
+                throw new UnauthorizedAccessException(
+                    "You are not allowed to view donor responses.");
+            }
+
+            var responses =
+                await _bloodRequestResponseRepository
+                    .GetByRequestAsync(bloodRequestId);
+
+            return responses
+                .Select(MapResponseToDto)
+                .ToList();
+        }
+
+
+        // ==========================================
+        // RESPONSE -> DTO
+        // ==========================================
+
+        private static BloodRequestResponseDto MapResponseToDto(
+            BloodRequestResponse response)
+        {
+            return new BloodRequestResponseDto
+            {
+                Id =
+                    response.Id,
+
+                BloodRequestId =
+                    response.BloodRequestId,
+
+                DonorId =
+                    response.DonorId,
+
+                DonorName =
+                    response.DonorName,
+
+                DonorPhone =
+                    response.DonorPhone,
+
+                BloodType =
+                    response.BloodType,
+
+                Status =
+                    response.Status,
+
+                CreatedAt =
+                    DateTime.SpecifyKind(
+                        response.CreatedAt,
+                        DateTimeKind.Utc),
+
+                UpdatedAt =
+                    response.UpdatedAt.HasValue
+                        ? DateTime.SpecifyKind(
+                            response.UpdatedAt.Value,
+                            DateTimeKind.Utc)
+                        : null
+            };
+        }
+        // ==========================================
         // ADMIN ROLE CHECK
         // ==========================================
 
@@ -516,15 +791,29 @@ namespace BloodDonationAPI.BLL.Services
                 EmergencyId =
                     request.EmergencyId,
 
-                CreatedAt =
+                // SQL Server can return DateTime values with Kind=Unspecified.
+                // These values were originally stored as UTC, so explicitly mark
+                // them as UTC before ASP.NET serializes them to JSON. This makes
+                // the API return a timezone-aware value (with Z) to React Native.
+                            CreatedAt =
+                DateTime.SpecifyKind(
                     request.CreatedAt,
+                    DateTimeKind.Utc),
 
-                UpdatedAt =
-                    request.UpdatedAt,
+                            UpdatedAt =
+                request.UpdatedAt.HasValue
+                    ? DateTime.SpecifyKind(
+                        request.UpdatedAt.Value,
+                        DateTimeKind.Utc)
+                    : null,
 
-                ExpireAt =
-                    request.ExpireAt
-            };
+                            ExpireAt =
+                request.ExpireAt.HasValue
+                    ? DateTime.SpecifyKind(
+                        request.ExpireAt.Value,
+                        DateTimeKind.Utc)
+                    : null
+                        };
         }
     }
 }

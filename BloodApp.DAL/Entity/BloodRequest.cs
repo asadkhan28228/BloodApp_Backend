@@ -79,5 +79,8 @@ namespace BloodDonationAPI.DAL.Models
         public User? Reporter { get; set; }
 
         public EmergencyRequest? Emergency { get; set; }
+
+
+        public ICollection<BloodRequestResponse> DonorResponses { get; set; } = new List<BloodRequestResponse>();
     }
 }

@@ -112,5 +112,26 @@ namespace BloodDonationAPI.DAL.Repositories.Implementations
 
             await _context.SaveChangesAsync();
         }
+        // ==========================================
+        // DELETE EXPIRED BLOOD REQUESTS
+        // ==========================================
+
+        public async Task<int> DeleteExpiredAsync(DateTime utcNow)
+        {
+            var expiredRequests = await _context.BloodRequests
+                .Where(x =>
+                    x.ExpireAt.HasValue &&
+                    x.ExpireAt.Value <= utcNow)
+                .ToListAsync();
+
+            if (expiredRequests.Count == 0)
+            {
+                return 0;
+            }
+
+            _context.BloodRequests.RemoveRange(expiredRequests);
+
+            return await _context.SaveChangesAsync();
+        }
     }
 }

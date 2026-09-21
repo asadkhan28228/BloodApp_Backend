@@ -36,6 +36,8 @@ namespace BloodDonationAPI.DAL.Data
 
         public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
 
+        public DbSet<BloodRequestResponse> BloodRequestResponses { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -124,6 +126,49 @@ namespace BloodDonationAPI.DAL.Data
                     .OnDelete(DeleteBehavior.SetNull);
             });
 
+            // ==========================================
+            // BLOOD REQUEST RESPONSE
+            // ==========================================
+
+            modelBuilder.Entity<BloodRequestResponse>(entity =>
+            {
+                entity.HasKey(x => x.Id);
+
+                entity.Property(x => x.Status)
+                    .HasDefaultValue("Pending");
+
+                entity.Property(x => x.DonorName)
+                    .IsRequired()
+                    .HasMaxLength(150);
+
+                entity.Property(x => x.DonorPhone)
+                    .HasMaxLength(30);
+
+                entity.Property(x => x.BloodType)
+                    .HasMaxLength(10);
+
+                entity.HasOne(x => x.BloodRequest)
+                    .WithMany(x => x.DonorResponses)
+                    .HasForeignKey(x => x.BloodRequestId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(x => x.Donor)
+                    .WithMany()
+                    .HasForeignKey(x => x.DonorId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // Same donor cannot respond twice
+                entity.HasIndex(x => new
+                {
+                    x.BloodRequestId,
+                    x.DonorId
+                })
+                .IsUnique();
+
+                entity.HasIndex(x => x.BloodRequestId);
+
+                entity.HasIndex(x => x.DonorId);
+            });
 
             // ==========================================
             // EMERGENCY REQUEST

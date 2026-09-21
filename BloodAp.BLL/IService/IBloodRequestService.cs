@@ -34,5 +34,18 @@ namespace BloodDonationAPI.BLL.Interfaces
         Task<bool> CompleteAsync(
             Guid id,
             string currentUserRole);
+
+        // ==========================================
+        // DONOR RESPONSE
+        // ==========================================
+
+        Task<BloodRequestResponseDto?> RespondAsync(
+            Guid bloodRequestId,
+            Guid donorId);
+
+        Task<List<BloodRequestResponseDto>> GetResponsesAsync(
+            Guid bloodRequestId,
+            Guid currentUserId,
+            string currentUserRole);
     }
 }

@@ -38,7 +38,6 @@ namespace BloodDonationAPI.DAL.Models
 
         public DateTime? UpdatedAt { get; set; }
 
-        // Navigation Properties
         public EmergencyRequest? EmergencyRequest { get; set; }
 
         public User? Donor { get; set; }

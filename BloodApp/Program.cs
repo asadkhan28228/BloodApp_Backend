@@ -3,6 +3,7 @@ using BloodDonationAPI.API.Services;
 using BloodDonationAPI.BLL.Interfaces;
 using BloodDonationAPI.BLL.Services;
 using BloodDonationAPI.DAL.Data;
+using BloodDonationAPI.DAL.Models;
 using BloodDonationAPI.DAL.Repositories;
 using BloodDonationAPI.DAL.Repositories.Implementations;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -89,6 +90,13 @@ builder.Services
                         Encoding.UTF8.GetBytes(jwtKey)
                     ),
 
+                // Important for [Authorize(Roles = "admin")]
+                RoleClaimType =
+                    System.Security.Claims.ClaimTypes.Role,
+
+                NameClaimType =
+                    System.Security.Claims.ClaimTypes.NameIdentifier,
+
                 ClockSkew = TimeSpan.Zero
             };
 
@@ -167,10 +175,15 @@ builder.Services.AddScoped<
     IPasswordResetTokenRepository,
     PasswordResetTokenRepository>();
 
+builder.Services.AddScoped<
+    IBloodRequestResponseRepository,
+    BloodRequestResponseRepository>();
+
 
 // =====================================================
 // SERVICES
 // =====================================================
+
 
 builder.Services.AddHostedService<
     BloodRequestExpiryService>();
@@ -215,7 +228,9 @@ builder.Services.AddScoped<
     IUserService,
     UserService>();
 
-builder.Services.AddScoped<IEmergencyService, EmergencyService>();
+builder.Services.AddScoped<
+    IEmergencyService,
+    EmergencyService>();
 
 
 // =====================================================
@@ -323,6 +338,147 @@ app.MapControllers();
 app.MapHub<NotificationHub>(
     "/notificationHub"
 );
+
+
+// =====================================================
+// DEFAULT ADMIN ACCOUNT
+// =====================================================
+
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext =
+        scope.ServiceProvider
+            .GetRequiredService<AppDbContext>();
+
+    var configuration =
+        scope.ServiceProvider
+            .GetRequiredService<IConfiguration>();
+
+    var adminEmail =
+        configuration["AdminAccount:Email"]?
+            .Trim()
+            .ToLower();
+
+    var adminPassword =
+        configuration["AdminAccount:Password"];
+
+    // Only try to create admin when credentials
+    // are present in configuration.
+    if (!string.IsNullOrWhiteSpace(adminEmail) &&
+        !string.IsNullOrWhiteSpace(adminPassword))
+    {
+        var existingUser =
+            await dbContext.Users
+                .FirstOrDefaultAsync(
+                    user =>
+                        user.Email.ToLower() ==
+                        adminEmail
+                );
+
+        // =============================================
+        // CREATE ADMIN IF EMAIL DOES NOT EXIST
+        // =============================================
+
+        if (existingUser == null)
+        {
+            var admin = new User
+            {
+                Id = Guid.NewGuid(),
+
+                FullName = "BloodCare Admin",
+
+                Email = adminEmail,
+
+                PasswordHash =
+                    BCrypt.Net.BCrypt.HashPassword(
+                        adminPassword
+                    ),
+
+                PhoneNumber = "",
+
+                // Admin is not a donor
+                BloodType = "N/A",
+
+                Gender = null,
+
+                Location = null,
+
+                Latitude = null,
+
+                Longitude = null,
+
+                Role = "admin",
+
+                IsActive = true,
+
+                AvailableToDonate = false,
+
+                DonationsCount = 0,
+
+                AvatarUrl = null,
+
+                PushToken = null,
+
+                CreatedAt = DateTime.UtcNow
+            };
+
+            dbContext.Users.Add(admin);
+
+            await dbContext.SaveChangesAsync();
+
+            Console.WriteLine(
+                "======================================"
+            );
+
+            Console.WriteLine(
+                $"ADMIN CREATED: {adminEmail}"
+            );
+
+            Console.WriteLine(
+                "======================================"
+            );
+        }
+
+        // =============================================
+        // EMAIL EXISTS AND IS ALREADY ADMIN
+        // =============================================
+
+        else if (
+            string.Equals(
+                existingUser.Role,
+                "admin",
+                StringComparison.OrdinalIgnoreCase
+            )
+        )
+        {
+            Console.WriteLine(
+                $"Admin account already exists: {adminEmail}"
+            );
+        }
+
+        // =============================================
+        // EMAIL EXISTS AS NORMAL USER
+        // Do NOT silently promote a normal user.
+        // =============================================
+
+        else
+        {
+            Console.WriteLine(
+                $"WARNING: Admin email {adminEmail} already belongs to a normal user."
+            );
+
+            Console.WriteLine(
+                "Admin role was NOT assigned automatically."
+            );
+        }
+    }
+    else
+    {
+        Console.WriteLine(
+            "AdminAccount configuration not found. Admin seeding skipped."
+        );
+    }
+}
 
 
 // =====================================================

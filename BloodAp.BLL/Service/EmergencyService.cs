@@ -830,9 +830,28 @@ namespace BloodDonationAPI.BLL.Services
                     .GetByEmergencyAsync(
                         emergencyId);
 
-            return responses
-                .Select(MapResponseToDto)
-                .ToList();
+            var result = new List<EmergencyResponseDto>();
+
+            foreach (var response in responses)
+            {
+                var dto = MapResponseToDto(response);
+
+                // Always read the latest donor profile data so phone/location
+                // are available even for older EmergencyResponse rows.
+                var donor = await _userRepository.GetByIdAsync(response.DonorId);
+
+                if (donor != null)
+                {
+                    dto.DonorPhone = donor.PhoneNumber;
+                    dto.DonorLocation = donor.Location;
+                    dto.Latitude = donor.Latitude;
+                    dto.Longitude = donor.Longitude;
+                }
+
+                result.Add(dto);
+            }
+
+            return result;
         }
 
         // =========================================================
@@ -1289,7 +1308,7 @@ namespace BloodDonationAPI.BLL.Services
                 donorBloodType.Trim().ToUpper();
 
             emergencyBloodType =
-                emergencyBloodType.Trim().ToUpper();
+                emergencyBloodType.Trim().ToUpper(); 
 
             if (emergencyBloodType == "ANY")
                 return true;

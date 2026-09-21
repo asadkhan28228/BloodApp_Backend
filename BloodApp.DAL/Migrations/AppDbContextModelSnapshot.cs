@@ -205,6 +205,56 @@ namespace BloodApp.DAL.Migrations
                     b.ToTable("BloodRequests");
                 });
 
+            modelBuilder.Entity("BloodDonationAPI.DAL.Models.BloodRequestResponse", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BloodRequestId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BloodType")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("DonorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("DonorName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("DonorPhone")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)")
+                        .HasDefaultValue("Pending");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BloodRequestId");
+
+                    b.HasIndex("DonorId");
+
+                    b.HasIndex("BloodRequestId", "DonorId")
+                        .IsUnique();
+
+                    b.ToTable("BloodRequestResponses");
+                });
+
             modelBuilder.Entity("BloodDonationAPI.DAL.Models.CommunityNotification", b =>
                 {
                     b.Property<Guid>("Id")
@@ -732,6 +782,25 @@ namespace BloodApp.DAL.Migrations
                     b.Navigation("Reporter");
                 });
 
+            modelBuilder.Entity("BloodDonationAPI.DAL.Models.BloodRequestResponse", b =>
+                {
+                    b.HasOne("BloodDonationAPI.DAL.Models.BloodRequest", "BloodRequest")
+                        .WithMany("DonorResponses")
+                        .HasForeignKey("BloodRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("BloodDonationAPI.DAL.Models.User", "Donor")
+                        .WithMany()
+                        .HasForeignKey("DonorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("BloodRequest");
+
+                    b.Navigation("Donor");
+                });
+
             modelBuilder.Entity("BloodDonationAPI.DAL.Models.EmergencyRequest", b =>
                 {
                     b.HasOne("BloodDonationAPI.DAL.Models.User", "Reporter")
@@ -793,6 +862,11 @@ namespace BloodApp.DAL.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("BloodDonationAPI.DAL.Models.BloodRequest", b =>
+                {
+                    b.Navigation("DonorResponses");
                 });
 
             modelBuilder.Entity("BloodDonationAPI.DAL.Models.EmergencyRequest", b =>
