@@ -1,8 +1,11 @@
-﻿using System.Security.Cryptography;
+﻿using BloodApp.DAL.Entity.BloodDonationAPI.DAL.Models;
 using BloodDonationAPI.BLL.DTOs.Auth;
 using BloodDonationAPI.BLL.Interfaces;
 using BloodDonationAPI.DAL.Models;
 using BloodDonationAPI.DAL.Repositories;
+using Microsoft.Extensions.Configuration;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace BloodDonationAPI.BLL.Services
 {
@@ -14,6 +17,9 @@ namespace BloodDonationAPI.BLL.Services
         private readonly IPasswordResetTokenRepository _passwordResetTokenRepository;
         private readonly ICommunityNotificationRepository _communityNotificationRepository;
         private readonly INotificationPublisher _notificationPublisher;
+        private readonly IEmailVerificationTokenRepository _verificationTokens;
+        private readonly IEmailService _emailService;
+        private readonly IConfiguration _configuration;
 
         public AuthService(
             IUserRepository userRepository,
@@ -21,7 +27,10 @@ namespace BloodDonationAPI.BLL.Services
             IRefreshTokenRepository refreshTokenRepository,
             IPasswordResetTokenRepository passwordResetTokenRepository,
             ICommunityNotificationRepository communityNotificationRepository,
-            INotificationPublisher notificationPublisher)
+            INotificationPublisher notificationPublisher,
+            IEmailVerificationTokenRepository verificationTokens,
+            IEmailService emailService,
+            IConfiguration configuration)
         {
             _userRepository = userRepository;
             _jwtService = jwtService;
@@ -29,6 +38,9 @@ namespace BloodDonationAPI.BLL.Services
             _passwordResetTokenRepository = passwordResetTokenRepository;
             _communityNotificationRepository = communityNotificationRepository;
             _notificationPublisher = notificationPublisher;
+            _verificationTokens = verificationTokens;
+            _emailService = emailService;
+            _configuration = configuration;
         }
 
         // =========================================================
@@ -65,6 +77,7 @@ namespace BloodDonationAPI.BLL.Services
                 Longitude = dto.Longitude,
                 Role = "user",
                 IsActive = true,
+                IsEmailVerified = false,
                 AvailableToDonate = true,
                 DonationsCount = 0,
                 LivesSaved = 0,
@@ -76,44 +89,14 @@ namespace BloodDonationAPI.BLL.Services
             var createdUser =
                 await _userRepository.AddAsync(user);
 
-            // Notify all OTHER users that a new donor/user joined.
-            // NotificationController already filters out community notifications
-            // whose ReporterUid is the current user's id when history is loaded.
-            try
+            // Registration does not issue JWTs until email verification.
+            await SendNewVerificationTokenAsync(createdUser);
+            return new AuthResponseDto
             {
-                var registrationNotification = new CommunityNotification
-                {
-                    Id = Guid.NewGuid(),
-                    Type = "registration",
-                    Title = "New Donor Joined 🩸",
-                    Message = string.IsNullOrWhiteSpace(createdUser.BloodType)
-                        ? $"{createdUser.FullName} has joined the BloodCare community."
-                        : $"{createdUser.FullName} has registered as a {createdUser.BloodType} blood donor.",
-                    Unread = true,
-                    Icon = "person-add-outline",
-                    Color = "#DC2626",
-                    ReporterUid = createdUser.Id,
-                    ReporterName = createdUser.FullName,
-                    BloodType = createdUser.BloodType,
-                    Location = createdUser.Location,
-                    PhoneNumber = createdUser.PhoneNumber,
-                    Status = "registered",
-                    CreatedAt = DateTime.UtcNow
-                };
-
-                await _communityNotificationRepository
-                    .AddAsync(registrationNotification);
-
-                await _notificationPublisher
-                    .PublishCommunityNotificationAsync(registrationNotification);
-            }
-            catch (Exception ex)
-            {
-                // Registration must remain successful even if notification delivery fails.
-                Console.WriteLine($"Registration notification failed: {ex.Message}");
-            }
-
-            return await CreateAuthResponseAsync(createdUser);
+                User = MapUserToProfile(createdUser),
+                RequiresEmailVerification = true,
+                Message = "Registration received. Check your email to verify your account."
+            };
         }
 
         // =========================================================
@@ -147,6 +130,9 @@ namespace BloodDonationAPI.BLL.Services
             {
                 return null;
             }
+
+            if (!user.IsEmailVerified)
+                return null;
 
             return await CreateAuthResponseAsync(user);
         }
@@ -209,9 +195,8 @@ namespace BloodDonationAPI.BLL.Services
             await _passwordResetTokenRepository
                 .AddAsync(resetToken);
 
-            // Gmail email service will be connected later.
-            Console.WriteLine(
-                $"PASSWORD RESET TOKEN for {email}: {token}");
+            // Password reset email delivery is a separate pending integration.
+            // Never log reset tokens in production.
 
             return true;
         }
@@ -312,8 +297,8 @@ namespace BloodDonationAPI.BLL.Services
                 return null;
             }
 
-            // User account must still be active.
-            if (!user.IsActive)
+            // Both account activation and email verification are required.
+            if (!user.IsActive || !user.IsEmailVerified)
             {
                 return null;
             }
@@ -359,6 +344,101 @@ namespace BloodDonationAPI.BLL.Services
 
             return true;
         }
+
+        // =========================================================
+        // VERIFY EMAIL / RESEND VERIFICATION
+        // =========================================================
+
+        public async Task<bool> VerifyEmailAsync(string token)
+        {
+            if (string.IsNullOrWhiteSpace(token)) return false;
+            var hash = HashToken(token.Trim());
+            var record = await _verificationTokens.GetByTokenHashAsync(hash);
+            if (record == null || record.IsUsed || record.ExpiresAt <= DateTime.UtcNow)
+                return false;
+
+            var user = await _userRepository.GetByIdAsync(record.UserId);
+            if (user == null || !user.IsActive || user.IsEmailVerified) return false;
+
+            user.IsEmailVerified = true;
+            user.EmailVerifiedAt = DateTime.UtcNow;
+            user.UpdatedAt = DateTime.UtcNow;
+            await _userRepository.UpdateAsync(user);
+
+            record.IsUsed = true;
+            await _verificationTokens.UpdateAsync(record);
+
+            // Notify the community only after a verified registration.
+            try
+            {
+                var notice = new CommunityNotification
+                {
+                    Id = Guid.NewGuid(),
+                    Type = "registration",
+                    Title = "New Donor Joined 🩸",
+                    Message = string.IsNullOrWhiteSpace(user.BloodType)
+                        ? $"{user.FullName} has joined the BloodCare community."
+                        : $"{user.FullName} has registered as a {user.BloodType} blood donor.",
+                    Unread = true,
+                    Icon = "person-add-outline",
+                    Color = "#DC2626",
+                    ReporterUid = user.Id,
+                    ReporterName = user.FullName,
+                    BloodType = user.BloodType,
+                    Location = user.Location,
+                    PhoneNumber = user.PhoneNumber,
+                    Status = "registered",
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _communityNotificationRepository.AddAsync(notice);
+                await _notificationPublisher.PublishCommunityNotificationAsync(notice);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Verification community notification failed: {ex.Message}");
+            }
+            return true;
+        }
+
+        public async Task<bool> ResendVerificationEmailAsync(string email)
+        {
+            if (string.IsNullOrWhiteSpace(email)) return true;
+            var user = await _userRepository.GetByEmailAsync(email.Trim().ToLowerInvariant());
+            // Generic response prevents email enumeration.
+            if (user == null || user.IsEmailVerified || !user.IsActive) return true;
+            await SendNewVerificationTokenAsync(user);
+            return true;
+        }
+
+        private async Task SendNewVerificationTokenAsync(User user)
+        {
+            var baseUrl = _configuration["EmailVerification:VerificationBaseUrl"];
+            if (string.IsNullOrWhiteSpace(baseUrl))
+                throw new InvalidOperationException("EmailVerification:VerificationBaseUrl is required.");
+
+            var expiryMinutes = 30;
+            if (int.TryParse(_configuration["EmailVerification:TokenExpiryMinutes"], out var configured)
+                && configured > 0 && configured <= 1440)
+                expiryMinutes = configured;
+
+            var rawToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+            await _verificationTokens.InvalidateUserTokensAsync(user.Id);
+            await _verificationTokens.AddAsync(new EmailVerificationToken
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                TokenHash = HashToken(rawToken),
+                ExpiresAt = DateTime.UtcNow.AddMinutes(expiryMinutes),
+                CreatedAt = DateTime.UtcNow
+            });
+
+            var separator = baseUrl.Contains('?') ? "&" : "?";
+            var link = baseUrl + separator + "token=" + Uri.EscapeDataString(rawToken);
+            await _emailService.SendVerificationEmailAsync(user.Email, user.FullName, link);
+        }
+
+        private static string HashToken(string token) =>
+            Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
 
         // =========================================================
         // CREATE AUTH RESPONSE

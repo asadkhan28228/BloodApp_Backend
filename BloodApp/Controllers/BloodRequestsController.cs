@@ -97,6 +97,29 @@ namespace BloodDonationAPI.API.Controllers
             return Ok(visibleRequests);
         }
 
+        // IDs of pending requests this authenticated donor has already responded to.
+        // Never expose other donors' responses here.
+        [HttpGet("my-responded-ids")]
+        public async Task<IActionResult> GetMyRespondedRequestIds()
+        {
+            var userId = GetCurrentUserId();
+            if (userId == null) return Unauthorized();
+
+            var pendingRequests = await _service.GetPendingAsync();
+            var ids = new List<Guid>();
+            foreach (var request in pendingRequests)
+            {
+                var response = await _bloodRequestResponseRepository
+                    .GetByRequestAndDonorAsync(request.Id, userId.Value);
+                if (response != null &&
+                    !string.Equals(response.Status, "Rejected", StringComparison.OrdinalIgnoreCase))
+                {
+                    ids.Add(request.Id);
+                }
+            }
+            return Ok(ids);
+        }
+
         // ==========================================
         // GET SINGLE REQUEST
         // ==========================================

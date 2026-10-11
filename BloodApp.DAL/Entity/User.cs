@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿
+using System.ComponentModel.DataAnnotations;
 
 namespace BloodDonationAPI.DAL.Models
 {
@@ -7,9 +8,7 @@ namespace BloodDonationAPI.DAL.Models
         [Key]
         public Guid Id { get; set; }
 
-        // ==============================
         // BASIC USER INFORMATION
-        // ==============================
 
         [Required]
         [MaxLength(150)]
@@ -25,9 +24,13 @@ namespace BloodDonationAPI.DAL.Models
         [MaxLength(30)]
         public string PhoneNumber { get; set; } = string.Empty;
 
-        // ==============================
+        // EMAIL VERIFICATION
+
+        public bool IsEmailVerified { get; set; } = false;
+
+        public DateTime? EmailVerifiedAt { get; set; }
+
         // BLOOD INFORMATION
-        // ==============================
 
         [Required]
         [MaxLength(5)]
@@ -36,9 +39,7 @@ namespace BloodDonationAPI.DAL.Models
         [MaxLength(20)]
         public string? Gender { get; set; }
 
-        // ==============================
         // LOCATION
-        // ==============================
 
         [MaxLength(200)]
         public string? Location { get; set; }
@@ -47,9 +48,7 @@ namespace BloodDonationAPI.DAL.Models
 
         public double? Longitude { get; set; }
 
-        // ==============================
         // DONOR INFORMATION
-        // ==============================
 
         public bool AvailableToDonate { get; set; } = true;
 
@@ -59,34 +58,29 @@ namespace BloodDonationAPI.DAL.Models
 
         public int LivesSaved { get; set; } = 0;
 
-        // ==============================
         // PROFILE
-        // ==============================
 
         [MaxLength(500)]
         public string? AvatarUrl { get; set; }
 
-        // Expo Push Notification Token
         [MaxLength(500)]
         public string? PushToken { get; set; }
 
-        // ==============================
         // ACCOUNT / ADMIN
-        // ==============================
 
         [Required]
         [MaxLength(30)]
         public string Role { get; set; } = "user";
 
+        // Separate from email verification.
+        // Admin can disable an account independently.
         public bool IsActive { get; set; } = true;
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public DateTime? UpdatedAt { get; set; }
 
-        // ==============================
         // NAVIGATION PROPERTIES
-        // ==============================
 
         public ICollection<BloodRequest> BloodRequests { get; set; }
             = new List<BloodRequest>();

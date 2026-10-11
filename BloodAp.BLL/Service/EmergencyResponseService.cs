@@ -144,18 +144,36 @@ namespace BloodDonationAPI.BLL.Services
             if (existingResponse == null)
                 return false;
 
-            existingResponse.EmergencyRequestId =
-                response.EmergencyRequestId;
+            // Ownership, emergency and timestamps are server-managed.
+            // This legacy update operation must not overwrite them.
+            // Donor coordinates are updated through UpdateLocationAsync only.
+            return false;
+        }
 
-            existingResponse.DonorId =
-                response.DonorId;
+        // ============================================
+        // UPDATE LIVE LOCATION (DONOR ONLY)
+        // ============================================
+        public async Task<bool> UpdateLocationAsync(
+            Guid responseId, Guid donorId, double latitude, double longitude)
+        {
+            if (latitude < -90 || latitude > 90 ||
+                longitude < -180 || longitude > 180 ||
+                double.IsNaN(latitude) || double.IsNaN(longitude) ||
+                double.IsInfinity(latitude) || double.IsInfinity(longitude))
+                return false;
 
-            existingResponse.RespondedAt =
-                response.RespondedAt;
+            var response = await _repository.GetByIdAsync(responseId);
+            if (response == null || response.DonorId != donorId)
+                return false;
 
-            await _repository.UpdateAsync(
-                existingResponse);
+            if (response.Status.Equals("Completed", StringComparison.OrdinalIgnoreCase) ||
+                response.Status.Equals("Cancelled", StringComparison.OrdinalIgnoreCase))
+                return false;
 
+            response.Latitude = latitude;
+            response.Longitude = longitude;
+            response.UpdatedAt = DateTime.UtcNow;
+            await _repository.UpdateAsync(response);
             return true;
         }
 

@@ -1,4 +1,5 @@
-﻿using System.Security.Claims;
+﻿
+using System.Security.Claims;
 using BloodDonationAPI.BLL.DTOs.Auth;
 using BloodDonationAPI.BLL.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -21,6 +22,7 @@ namespace BloodDonationAPI.API.Controllers
         // REGISTER
         // POST: api/auth/register
         // ==========================================
+
         [HttpPost("register")]
         [AllowAnonymous]
         public async Task<IActionResult> Register(
@@ -44,7 +46,9 @@ namespace BloodDonationAPI.API.Controllers
 
             return Ok(new
             {
-                message = "Registration successful.",
+                message = result.RequiresEmailVerification
+                    ? "Registration successful. Please verify your email."
+                    : "Registration successful.",
                 data = result
             });
         }
@@ -53,6 +57,7 @@ namespace BloodDonationAPI.API.Controllers
         // LOGIN
         // POST: api/auth/login
         // ==========================================
+
         [HttpPost("login")]
         [AllowAnonymous]
         public async Task<IActionResult> Login(
@@ -70,7 +75,9 @@ namespace BloodDonationAPI.API.Controllers
             {
                 return Unauthorized(new
                 {
-                    message = "Invalid email or password."
+                    message =
+                        "Invalid credentials, inactive account, " +
+                        "or email not verified."
                 });
             }
 
@@ -82,9 +89,79 @@ namespace BloodDonationAPI.API.Controllers
         }
 
         // ==========================================
+        // VERIFY EMAIL - NEW
+        // GET: api/auth/verify-email?token=...
+        // ==========================================
+
+        [HttpGet("verify-email")]
+        [AllowAnonymous]
+        public async Task<IActionResult> VerifyEmail(
+            [FromQuery] string token)
+        {
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                return BadRequest(new
+                {
+                    message = "Verification token is required."
+                });
+            }
+
+            var verified =
+                await _authService.VerifyEmailAsync(token);
+
+            if (!verified)
+            {
+                return BadRequest(new
+                {
+                    message =
+                        "Invalid, expired, or already used " +
+                        "verification link."
+                });
+            }
+
+            return Ok(new
+            {
+                message =
+                    "Email verified successfully. " +
+                    "You can now log in."
+            });
+        }
+
+        // ==========================================
+        // RESEND VERIFICATION - NEW
+        // POST: api/auth/resend-verification
+        // ==========================================
+
+        [HttpPost("resend-verification")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ResendVerification(
+            [FromBody] ResendVerificationRequest request)
+        {
+            if (request == null ||
+                string.IsNullOrWhiteSpace(request.Email))
+            {
+                return BadRequest(new
+                {
+                    message = "Email is required."
+                });
+            }
+
+            await _authService.ResendVerificationEmailAsync(
+                request.Email);
+
+            return Ok(new
+            {
+                message =
+                    "If this email is registered and not verified, " +
+                    "a new verification link will be sent."
+            });
+        }
+
+        // ==========================================
         // PROFILE
         // GET: api/auth/profile
         // ==========================================
+
         [HttpGet("profile")]
         [Authorize]
         public async Task<IActionResult> GetProfile()
@@ -125,6 +202,7 @@ namespace BloodDonationAPI.API.Controllers
         // FORGOT PASSWORD
         // POST: api/auth/forgot-password
         // ==========================================
+
         [HttpPost("forgot-password")]
         [AllowAnonymous]
         public async Task<IActionResult> ForgotPassword(
@@ -137,8 +215,6 @@ namespace BloodDonationAPI.API.Controllers
 
             await _authService.ForgotPasswordAsync(dto);
 
-            // Same response whether email exists or not.
-            // This prevents revealing registered emails.
             return Ok(new
             {
                 message =
@@ -151,6 +227,7 @@ namespace BloodDonationAPI.API.Controllers
         // RESET PASSWORD
         // POST: api/auth/reset-password
         // ==========================================
+
         [HttpPost("reset-password")]
         [AllowAnonymous]
         public async Task<IActionResult> ResetPassword(
@@ -182,6 +259,7 @@ namespace BloodDonationAPI.API.Controllers
         // REFRESH TOKEN
         // POST: api/auth/refresh-token
         // ==========================================
+
         [HttpPost("refresh-token")]
         [AllowAnonymous]
         public async Task<IActionResult> RefreshToken(
@@ -217,6 +295,7 @@ namespace BloodDonationAPI.API.Controllers
         // LOGOUT
         // POST: api/auth/logout
         // ==========================================
+
         [HttpPost("logout")]
         [AllowAnonymous]
         public async Task<IActionResult> Logout(
@@ -237,7 +316,8 @@ namespace BloodDonationAPI.API.Controllers
             {
                 return BadRequest(new
                 {
-                    message = "Invalid or already revoked refresh token."
+                    message =
+                        "Invalid or already revoked refresh token."
                 });
             }
 
@@ -245,6 +325,15 @@ namespace BloodDonationAPI.API.Controllers
             {
                 message = "Logout successful."
             });
+        }
+
+        // ==========================================
+        // RESEND VERIFICATION REQUEST DTO
+        // ==========================================
+
+        public class ResendVerificationRequest
+        {
+            public string Email { get; set; } = string.Empty;
         }
     }
 }

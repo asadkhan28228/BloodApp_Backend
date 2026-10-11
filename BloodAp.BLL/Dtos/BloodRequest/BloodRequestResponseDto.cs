@@ -18,6 +18,8 @@ namespace BloodDonationAPI.BLL.DTOs.BloodRequest
 
         public string? BloodType { get; set; }
 
+        public string? DonorLocation { get; set; }
+
         public string Status { get; set; } = "Pending";
 
         public DateTime CreatedAt { get; set; }

@@ -1,4 +1,8 @@
-﻿using BloodDonationAPI.BLL.Interfaces;
+﻿using BloodDonationAPI.API.Hubs;
+using BloodDonationAPI.DAL.Data;
+using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
+using BloodDonationAPI.BLL.Interfaces;
 using BloodDonationAPI.DAL.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,11 +16,17 @@ namespace BloodDonationAPI.API.Controllers
     public class EmergencyResponsesController : ControllerBase
     {
         private readonly IEmergencyResponseService _service;
+        private readonly IHubContext<NotificationHub> _hub;
+        private readonly AppDbContext _db;
 
         public EmergencyResponsesController(
-            IEmergencyResponseService service)
+            IEmergencyResponseService service,
+            IHubContext<NotificationHub> hub,
+            AppDbContext db)
         {
             _service = service;
+            _hub = hub;
+            _db = db;
         }
 
         // ============================================
@@ -37,6 +47,16 @@ namespace BloodDonationAPI.API.Controllers
                 });
             }
 
+            var userId = GetCurrentUserId();
+            if (userId == null) return Unauthorized();
+            if (response.DonorId != userId.Value && !IsAdmin())
+            {
+                var reporterId = await _db.EmergencyRequests.AsNoTracking()
+                    .Where(e => e.Id == response.EmergencyRequestId)
+                    .Select(e => (Guid?)e.ReporterUid)
+                    .FirstOrDefaultAsync();
+                if (reporterId != userId.Value) return Forbid();
+            }
             return Ok(response);
         }
 
@@ -48,6 +68,7 @@ namespace BloodDonationAPI.API.Controllers
         public async Task<IActionResult> GetByEmergency(
             Guid emergencyId)
         {
+            if (!IsAdmin()) return Forbid();
             var responses =
                 await _service.GetByEmergencyAsync(
                     emergencyId);
@@ -192,66 +213,57 @@ namespace BloodDonationAPI.API.Controllers
         }
 
         // ============================================
-        // UPDATE RESPONSE
+        // DONOR LIVE LOCATION UPDATE
+        // PUT: api/emergency-responses/{id}/location
         // ============================================
-
-        [HttpPut("{id:guid}")]
-        public async Task<IActionResult> Update(
-            Guid id,
-            [FromBody] EmergencyResponse response)
+        [HttpPut("{id:guid}/location")]
+        public async Task<IActionResult> UpdateLocation(
+            Guid id, [FromBody] UpdateEmergencyLocationRequest request)
         {
-            if (!ModelState.IsValid)
-                return ValidationProblem(ModelState);
-
             var donorId = GetCurrentUserId();
+            if (donorId == null) return Unauthorized();
+            if (request == null ||
+                request.Latitude < -90 || request.Latitude > 90 ||
+                request.Longitude < -180 || request.Longitude > 180 ||
+                double.IsNaN(request.Latitude) || double.IsNaN(request.Longitude) ||
+                double.IsInfinity(request.Latitude) || double.IsInfinity(request.Longitude))
+                return BadRequest(new { message = "Invalid coordinates." });
 
-            if (donorId == null)
-                return Unauthorized();
-
-            var existingResponse =
-                await _service.GetByIdAsync(id);
-
-            if (existingResponse == null)
+            var updated = await _service.UpdateLocationAsync(
+                id, donorId.Value, request.Latitude, request.Longitude);
+            if (!updated)
+                return BadRequest(new { message = "Response not found, not owned by you, or closed." });
+            // Only the reporter and this donor receive sensitive location updates.
+            var response = await _service.GetByIdAsync(id);
+            if (response != null)
             {
-                return NotFound(new
+                var emergency = await _db.EmergencyRequests.AsNoTracking()
+                    .FirstOrDefaultAsync(e => e.Id == response.EmergencyRequestId);
+                var locationEvent = new
                 {
-                    message = "Emergency response not found."
-                });
+                    responseId = id,
+                    emergencyRequestId = response.EmergencyRequestId,
+                    donorId = donorId.Value,
+                    latitude = request.Latitude,
+                    longitude = request.Longitude,
+                    updatedAt = DateTime.UtcNow
+                };
+                await _hub.Clients.Group($"user_{donorId.Value}")
+                    .SendAsync("DonorLocationUpdated", locationEvent);
+                if (emergency != null && emergency.ReporterUid != donorId.Value)
+                    await _hub.Clients.Group($"user_{emergency.ReporterUid}")
+                        .SendAsync("DonorLocationUpdated", locationEvent);
+
+                // Admin dashboards use authenticated private user groups.
+                var adminIds = await _db.Users.AsNoTracking()
+                    .Where(u => u.IsActive && (u.Role == "admin" || u.Role == "bloodBankAdmin"))
+                    .Select(u => u.Id)
+                    .ToListAsync();
+                foreach (var adminId in adminIds)
+                    await _hub.Clients.Group($"user_{adminId}")
+                        .SendAsync("DonorLocationUpdated", locationEvent);
             }
-
-            // Only owner or admin can update
-            if (existingResponse.DonorId != donorId.Value &&
-                !IsAdmin())
-            {
-                return Forbid();
-            }
-
-            response.Id = id;
-
-            // Do not allow frontend to change ownership
-            response.DonorId =
-                existingResponse.DonorId;
-
-            response.EmergencyRequestId =
-                existingResponse.EmergencyRequestId;
-
-            var result =
-                await _service.UpdateAsync(response);
-
-            if (!result)
-            {
-                return BadRequest(new
-                {
-                    message =
-                        "Unable to update emergency response."
-                });
-            }
-
-            return Ok(new
-            {
-                message =
-                    "Emergency response updated successfully."
-            });
+            return Ok(new { message = "Location updated successfully." });
         }
 
         // ============================================
@@ -288,5 +300,10 @@ namespace BloodDonationAPI.API.Controllers
                        "bloodBankAdmin",
                        StringComparison.OrdinalIgnoreCase) == true;
         }
+    }
+    public class UpdateEmergencyLocationRequest
+    {
+        public double Latitude { get; set; }
+        public double Longitude { get; set; }
     }
 }

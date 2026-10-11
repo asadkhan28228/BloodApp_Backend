@@ -1,4 +1,6 @@
-﻿using BloodDonationAPI.DAL.Models;
+﻿
+using BloodApp.DAL.Entity.BloodDonationAPI.DAL.Models;
+using BloodDonationAPI.DAL.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace BloodDonationAPI.DAL.Data
@@ -38,6 +40,8 @@ namespace BloodDonationAPI.DAL.Data
 
         public DbSet<BloodRequestResponse> BloodRequestResponses { get; set; }
 
+        // NEW: Email Verification
+        public DbSet<EmailVerificationToken> EmailVerificationTokens { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -70,6 +74,12 @@ namespace BloodDonationAPI.DAL.Data
 
                 entity.Property(x => x.IsActive)
                     .HasDefaultValue(true);
+
+                entity.Property(x => x.IsEmailVerified)
+                    .HasDefaultValue(false);
+
+                entity.Property(x => x.EmailVerifiedAt)
+                    .IsRequired(false);
 
                 entity.Property(x => x.AvailableToDonate)
                     .HasDefaultValue(true);
@@ -160,7 +170,6 @@ namespace BloodDonationAPI.DAL.Data
                     .HasForeignKey(x => x.DonorId)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                // Same donor cannot respond twice
                 entity.HasIndex(x => new
                 {
                     x.BloodRequestId,
@@ -202,7 +211,6 @@ namespace BloodDonationAPI.DAL.Data
                     .OnDelete(DeleteBehavior.Restrict);
             });
 
-
             // ==========================================
             // EMERGENCY RESPONSE
             // ==========================================
@@ -224,7 +232,6 @@ namespace BloodDonationAPI.DAL.Data
                     .HasForeignKey(x => x.DonorId)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                // Same donor cannot respond twice
                 entity.HasIndex(x => new
                 {
                     x.EmergencyRequestId,
@@ -232,7 +239,6 @@ namespace BloodDonationAPI.DAL.Data
                 })
                 .IsUnique();
             });
-
 
             // ==========================================
             // PRIVATE NOTIFICATIONS
@@ -259,7 +265,6 @@ namespace BloodDonationAPI.DAL.Data
                 });
             });
 
-
             // ==========================================
             // COMMUNITY NOTIFICATIONS
             // ==========================================
@@ -280,7 +285,6 @@ namespace BloodDonationAPI.DAL.Data
                 entity.HasIndex(x => x.BloodRequestId);
             });
 
-
             // ==========================================
             // BLOOD INVENTORY
             // ==========================================
@@ -295,7 +299,6 @@ namespace BloodDonationAPI.DAL.Data
                 entity.Property(x => x.Units)
                     .HasDefaultValue(0);
             });
-
 
             // ==========================================
             // BLOOD BATCH
@@ -323,7 +326,6 @@ namespace BloodDonationAPI.DAL.Data
                 });
             });
 
-
             // ==========================================
             // BLOOD BANK SETTING
             // ==========================================
@@ -341,7 +343,6 @@ namespace BloodDonationAPI.DAL.Data
                     .HasMaxLength(30);
             });
 
-
             // ==========================================
             // PASSWORD RESET TOKEN
             // ==========================================
@@ -355,6 +356,29 @@ namespace BloodDonationAPI.DAL.Data
                     .HasMaxLength(500);
 
                 entity.HasIndex(x => x.Token);
+
+                entity.HasIndex(x => x.UserId);
+
+                entity.HasOne(x => x.User)
+                    .WithMany()
+                    .HasForeignKey(x => x.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // ==========================================
+            // EMAIL VERIFICATION TOKEN - NEW
+            // ==========================================
+
+            modelBuilder.Entity<EmailVerificationToken>(entity =>
+            {
+                entity.HasKey(x => x.Id);
+
+                entity.Property(x => x.TokenHash)
+                    .IsRequired()
+                    .HasMaxLength(64);
+
+                entity.HasIndex(x => x.TokenHash)
+                    .IsUnique();
 
                 entity.HasIndex(x => x.UserId);
 

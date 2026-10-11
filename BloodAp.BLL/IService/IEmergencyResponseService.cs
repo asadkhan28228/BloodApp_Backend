@@ -27,6 +27,9 @@ namespace BloodDonationAPI.BLL.Interfaces
         Task<bool> UpdateAsync(
             EmergencyResponse response);
 
+        Task<bool> UpdateLocationAsync(
+            Guid responseId, Guid donorId, double latitude, double longitude);
+
         Task<bool> DeleteAsync(
             Guid id);
     }

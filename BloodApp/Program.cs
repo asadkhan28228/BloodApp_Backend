@@ -180,6 +180,11 @@ builder.Services.AddScoped<
     BloodRequestResponseRepository>();
 
 
+// Email verification token storage (required by AuthService)
+builder.Services.AddScoped<
+    IEmailVerificationTokenRepository,
+    EmailVerificationTokenRepository>();
+
 // =====================================================
 // SERVICES
 // =====================================================
@@ -187,6 +192,9 @@ builder.Services.AddScoped<
 
 builder.Services.AddHostedService<
     BloodRequestExpiryService>();
+
+// Remove notifications older than the configured retention period.
+builder.Services.AddHostedService<NotificationCleanupService>();
 
 builder.Services.AddScoped<
     IEmergencyResponseService,
@@ -215,6 +223,9 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     IAuthService,
     AuthService>();
+
+// SMTP email sender (required by AuthService)
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 builder.Services.AddScoped<
     IBloodInventoryService,
@@ -410,6 +421,10 @@ using (var scope = app.Services.CreateScope())
                 Role = "admin",
 
                 IsActive = true,
+
+                // Seeded admin account is already trusted.
+                IsEmailVerified = true,
+                EmailVerifiedAt = DateTime.UtcNow,
 
                 AvailableToDonate = false,
 

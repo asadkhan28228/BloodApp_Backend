@@ -667,9 +667,26 @@ namespace BloodDonationAPI.BLL.Services
                 await _bloodRequestResponseRepository
                     .GetByRequestAsync(bloodRequestId);
 
-            return responses
-                .Select(MapResponseToDto)
-                .ToList();
+            // Authorized requester/admin can see the donor's profile location.
+            var result = new List<BloodRequestResponseDto>();
+            var locationCache = new Dictionary<Guid, string?>();
+
+            foreach (var response in responses)
+            {
+                var dto = MapResponseToDto(response);
+
+                if (!locationCache.TryGetValue(response.DonorId, out var donorLocation))
+                {
+                    var donor = await _userRepository.GetByIdAsync(response.DonorId);
+                    donorLocation = donor?.Location;
+                    locationCache[response.DonorId] = donorLocation;
+                }
+
+                dto.DonorLocation = donorLocation;
+                result.Add(dto);
+            }
+
+            return result;
         }
         // ==========================================
         // CONFIRM DONOR RESPONSE
