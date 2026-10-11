@@ -60,6 +60,22 @@ namespace BloodDonationAPI.BLL.Services
                 return null;
             }
 
+            var normalizedPhone = dto.PhoneNumber.Trim();
+            var users = await _userRepository.GetAllAsync();
+            if (users.Any(u => u.PhoneNumber == normalizedPhone ||
+                u.PhoneNumber.Replace(" ", "").Replace("-", "") == normalizedPhone))
+            {
+                throw new InvalidOperationException("An account with this phone number already exists.");
+            }
+
+            // Verification is disabled by default during testing.
+            // Set EmailVerification:Enabled=true after configuring SMTP.
+            var requireEmailVerification =
+      bool.TryParse(
+          _configuration["EmailVerification:Enabled"],
+          out var enabled
+      ) && enabled;
+
             var passwordHash =
                 BCrypt.Net.BCrypt.HashPassword(dto.Password);
 
@@ -77,7 +93,8 @@ namespace BloodDonationAPI.BLL.Services
                 Longitude = dto.Longitude,
                 Role = "user",
                 IsActive = true,
-                IsEmailVerified = false,
+                IsEmailVerified = !requireEmailVerification,
+                EmailVerifiedAt = requireEmailVerification ? null : DateTime.UtcNow,
                 AvailableToDonate = true,
                 DonationsCount = 0,
                 LivesSaved = 0,
@@ -89,13 +106,24 @@ namespace BloodDonationAPI.BLL.Services
             var createdUser =
                 await _userRepository.AddAsync(user);
 
-            // Registration does not issue JWTs until email verification.
-            await SendNewVerificationTokenAsync(createdUser);
+            // Only send a verification email when explicitly enabled.
+            if (requireEmailVerification)
+            {
+                await SendNewVerificationTokenAsync(createdUser);
+            }
+            else
+            {
+                // Verification disabled: account is already active and verified.
+                await PublishRegistrationNotificationAsync(createdUser);
+            }
+
             return new AuthResponseDto
             {
                 User = MapUserToProfile(createdUser),
-                RequiresEmailVerification = true,
-                Message = "Registration received. Check your email to verify your account."
+                RequiresEmailVerification = requireEmailVerification,
+                Message = requireEmailVerification
+                    ? "Registration received. Check your email to verify your account."
+                    : "Registration successful. You can now log in."
             };
         }
 
@@ -368,7 +396,15 @@ namespace BloodDonationAPI.BLL.Services
             record.IsUsed = true;
             await _verificationTokens.UpdateAsync(record);
 
-            // Notify the community only after a verified registration.
+            // Verification enabled: publish only after successful verification.
+            await PublishRegistrationNotificationAsync(user);
+            return true;
+        }
+
+        // Registration alerts are stored once for the community and pushed
+        // to other active users by SignalRNotificationPublisher.
+        private async Task PublishRegistrationNotificationAsync(User user)
+        {
             try
             {
                 var notice = new CommunityNotification
@@ -390,14 +426,15 @@ namespace BloodDonationAPI.BLL.Services
                     Status = "registered",
                     CreatedAt = DateTime.UtcNow
                 };
+
                 await _communityNotificationRepository.AddAsync(notice);
                 await _notificationPublisher.PublishCommunityNotificationAsync(notice);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Verification community notification failed: {ex.Message}");
+                // A notification failure must not invalidate a created account.
+                Console.Error.WriteLine($"Registration community notification failed: {ex}");
             }
-            return true;
         }
 
         public async Task<bool> ResendVerificationEmailAsync(string email)

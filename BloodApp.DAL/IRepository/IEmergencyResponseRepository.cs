@@ -1,4 +1,8 @@
-﻿using BloodDonationAPI.DAL.Models;
+﻿
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using BloodDonationAPI.DAL.Models;
 
 namespace BloodDonationAPI.DAL.Repositories
 {
@@ -25,5 +29,12 @@ namespace BloodDonationAPI.DAL.Repositories
 
         Task DeleteAsync(
             EmergencyResponse response);
+
+        // Only one donor can start the journey.
+        // Returns false if another donor has
+        // already started or arrived.
+        Task<bool> TryStartJourneyAsync(
+            Guid responseId,
+            Guid donorId);
     }
 }

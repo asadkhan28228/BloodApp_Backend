@@ -27,6 +27,8 @@ namespace BloodDonationAPI.DAL.Repositories
             string bloodType,
             int units);
 
+        Task<int> ReserveAvailableUnitsAsync(string bloodType, int units);
+
         Task ReleaseUnitsAsync(
             string bloodType,
             int units);

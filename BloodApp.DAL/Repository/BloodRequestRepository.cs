@@ -13,20 +13,12 @@ namespace BloodDonationAPI.DAL.Repositories.Implementations
             _context = context;
         }
 
-        // ==========================================
-        // GET BY ID
-        // ==========================================
-
         public async Task<BloodRequest?> GetByIdAsync(Guid id)
         {
             return await _context.BloodRequests
                 .AsNoTracking()
                 .FirstOrDefaultAsync(x => x.Id == id);
         }
-
-        // ==========================================
-        // GET ALL
-        // ==========================================
 
         public async Task<List<BloodRequest>> GetAllAsync()
         {
@@ -36,12 +28,7 @@ namespace BloodDonationAPI.DAL.Repositories.Implementations
                 .ToListAsync();
         }
 
-        // ==========================================
-        // GET BY REPORTER
-        // ==========================================
-
-        public async Task<List<BloodRequest>> GetByReporterAsync(
-            Guid reporterUid)
+        public async Task<List<BloodRequest>> GetByReporterAsync(Guid reporterUid)
         {
             return await _context.BloodRequests
                 .AsNoTracking()
@@ -49,10 +36,6 @@ namespace BloodDonationAPI.DAL.Repositories.Implementations
                 .OrderByDescending(x => x.CreatedAt)
                 .ToListAsync();
         }
-
-        // ==========================================
-        // GET PENDING
-        // ==========================================
 
         public async Task<List<BloodRequest>> GetPendingAsync()
         {
@@ -63,75 +46,55 @@ namespace BloodDonationAPI.DAL.Repositories.Implementations
                 .ToListAsync();
         }
 
-
-        // ==========================================
-        // GET BY EMERGENCY ID
-        // ==========================================
-
-        public async Task<BloodRequest?> GetByEmergencyIdAsync(
-            Guid emergencyId)
+        public async Task<BloodRequest?> GetByEmergencyIdAsync(Guid emergencyId)
         {
             return await _context.BloodRequests
                 .FirstOrDefaultAsync(x => x.EmergencyId == emergencyId);
         }
 
-        // ==========================================
-        // ADD
-        // ==========================================
-
-        public async Task<BloodRequest> AddAsync(
-            BloodRequest request)
+        public async Task<BloodRequest> AddAsync(BloodRequest request)
         {
             await _context.BloodRequests.AddAsync(request);
-
             await _context.SaveChangesAsync();
-
             return request;
         }
 
-        // ==========================================
-        // UPDATE
-        // ==========================================
-
-        public async Task UpdateAsync(
-            BloodRequest request)
+        public async Task UpdateAsync(BloodRequest request)
         {
             _context.BloodRequests.Update(request);
-
             await _context.SaveChangesAsync();
         }
 
-        // ==========================================
-        // DELETE
-        // ==========================================
-
-        public async Task DeleteAsync(
-            BloodRequest request)
+        public async Task DeleteAsync(BloodRequest request)
         {
             _context.BloodRequests.Remove(request);
-
             await _context.SaveChangesAsync();
         }
-        // ==========================================
-        // DELETE EXPIRED BLOOD REQUESTS
-        // ==========================================
 
+        // Delete only unanswered, ordinary blood requests after 24 hours.
+        // A response of ANY status prevents automatic deletion.
         public async Task<int> DeleteExpiredAsync(DateTime utcNow)
         {
+            //var cutoff = utcNow.AddHours(-24);
+
+            var cutoff = utcNow.AddMinutes(-2);
+
             var expiredRequests = await _context.BloodRequests
-                .Where(x =>
-                    x.ExpireAt.HasValue &&
-                    x.ExpireAt.Value <= utcNow)
+                .Where(request =>
+                    request.RequestType == "BloodRequest" &&
+                    request.EmergencyId == null &&
+                    request.Status == "Pending" &&
+                    request.CreatedAt <= cutoff &&
+                    !_context.BloodRequestResponses.Any(response =>
+                        response.BloodRequestId == request.Id))
                 .ToListAsync();
 
             if (expiredRequests.Count == 0)
-            {
                 return 0;
-            }
 
             _context.BloodRequests.RemoveRange(expiredRequests);
-
-            return await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync();
+            return expiredRequests.Count;
         }
     }
 }

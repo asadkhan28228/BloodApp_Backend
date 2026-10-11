@@ -1,5 +1,10 @@
-﻿using System.Net.Http.Json;
+﻿
+using System;
+using System.Linq;
+using System.Collections.Generic;
+using System.Net.Http.Json;
 using System.Reflection;
+using System.Threading.Tasks;
 using BloodDonationAPI.API.Hubs;
 using BloodDonationAPI.BLL.Interfaces;
 using BloodDonationAPI.DAL.Repositories;
@@ -9,7 +14,8 @@ namespace BloodDonationAPI.API.Services
 {
     public class SignalRNotificationPublisher : INotificationPublisher
     {
-        private const string ExpoPushUrl = "https://exp.host/--/api/v2/push/send";
+        private const string ExpoPushUrl =
+            "https://exp.host/--/api/v2/push/send";
 
         private readonly IHubContext<NotificationHub> _hubContext;
         private readonly IUserRepository _userRepository;
@@ -28,23 +34,76 @@ namespace BloodDonationAPI.API.Services
             _logger = logger;
         }
 
-        public async Task PublishCommunityNotificationAsync(object notification)
+        // ============================================
+        // COMMUNITY NOTIFICATIONS
+        // ============================================
+
+        public async Task PublishCommunityNotificationAsync(
+            object notification)
         {
-            // App open: instant in-app update through SignalR.
-            await _hubContext.Clients.All.SendAsync(
-                "CommunityNotification",
-                notification);
-
-            // App background/killed: OS notification through Expo Push.
             var users = await _userRepository.GetAllAsync();
-            var reporterId = TryGetGuid(notification, "ReporterUid")
-                             ?? TryGetGuid(notification, "UserId");
 
-            var tokens = users
-                .Where(u => u.IsActive &&
-                            u.Role == "user" &&
-                            !string.IsNullOrWhiteSpace(u.PushToken) &&
-                            (!reporterId.HasValue || u.Id != reporterId.Value))
+            var reporterId =
+                TryGetGuid(notification, "ReporterUid")
+                ?? TryGetGuid(notification, "UserId");
+
+            var type = (
+                GetString(notification, "Type") ?? ""
+            ).Trim().ToLowerInvariant();
+
+            // Exclude the creator from ALL community notifications.
+            // This includes:
+            // - Blood requests
+            // - New registrations
+            // - Emergency community notifications
+            //
+            // All other active normal users will receive them.
+
+            var recipients = users
+                .Where(u =>
+                    u.IsActive &&
+                    string.Equals(
+                        u.Role,
+                        "user",
+                        StringComparison.OrdinalIgnoreCase) &&
+                    (
+                        !reporterId.HasValue ||
+                        u.Id != reporterId.Value
+                    ))
+                .GroupBy(u => u.Id)
+                .Select(g => g.First())
+                .ToList();
+
+            // ========================================
+            // REAL-TIME SIGNALR
+            // ========================================
+
+            var sendTasks = recipients.Select(user =>
+                _hubContext.Clients
+                    .Group($"user_{user.Id}")
+                    .SendAsync(
+                        "CommunityNotification",
+                        notification));
+
+            await Task.WhenAll(sendTasks);
+
+            _logger.LogInformation(
+                "Community notification {NotificationId} " +
+                "of type {NotificationType} sent to " +
+                "{RecipientCount} active users. " +
+                "Creator excluded: {ReporterId}",
+                GetString(notification, "Id"),
+                type,
+                recipients.Count,
+                reporterId);
+
+            // ========================================
+            // EXPO PUSH NOTIFICATIONS
+            // ========================================
+
+            var tokens = recipients
+                .Where(u =>
+                    !string.IsNullOrWhiteSpace(u.PushToken))
                 .Select(u => u.PushToken!)
                 .Distinct()
                 .ToList();
@@ -52,16 +111,23 @@ namespace BloodDonationAPI.API.Services
             await SendExpoPushAsync(tokens, notification);
         }
 
+        // ============================================
+        // PRIVATE USER NOTIFICATIONS
+        // ============================================
+
         public async Task PublishUserNotificationAsync(
             Guid userId,
             object notification)
         {
-            // App open: private SignalR group.
+            // Private notifications are sent only
+            // to their intended recipient.
+
             await _hubContext.Clients
                 .Group($"user_{userId}")
-                .SendAsync("ReceiveNotification", notification);
+                .SendAsync(
+                    "ReceiveNotification",
+                    notification);
 
-            // App background/killed: push to that user's device.
             var user = await _userRepository.GetByIdAsync(userId);
 
             if (user is { IsActive: true } &&
@@ -73,26 +139,46 @@ namespace BloodDonationAPI.API.Services
             }
         }
 
+        // ============================================
+        // EXPO PUSH DELIVERY
+        // ============================================
+
         private async Task SendExpoPushAsync(
             IEnumerable<string> tokens,
             object notification)
         {
             var validTokens = tokens
-                .Where(t => t.StartsWith("ExponentPushToken[") ||
-                            t.StartsWith("ExpoPushToken["))
+                .Where(t =>
+                    !string.IsNullOrWhiteSpace(t) &&
+                    (
+                        t.StartsWith("ExponentPushToken[") ||
+                        t.StartsWith("ExpoPushToken[")
+                    ))
                 .Distinct()
                 .ToList();
 
             if (validTokens.Count == 0)
                 return;
 
-            var title = GetString(notification, "Title") ?? "Blood Care";
-            var body = GetString(notification, "Message") ?? "You have a new notification.";
-            var type = GetString(notification, "Type") ?? "general";
+            var title =
+                GetString(notification, "Title")
+                ?? "Blood Care";
+
+            var body =
+                GetString(notification, "Message")
+                ?? "You have a new notification.";
+
+            var type =
+                GetString(notification, "Type")
+                ?? "general";
+
             var id = GetString(notification, "Id");
-            var referenceId = GetString(notification, "ReferenceId")
-                              ?? GetString(notification, "EmergencyId")
-                              ?? GetString(notification, "EmergencyRequestId");
+
+            var referenceId =
+                GetString(notification, "ReferenceId")
+                ?? GetString(notification, "EmergencyId")
+                ?? GetString(notification, "EmergencyRequestId")
+                ?? GetString(notification, "BloodRequestId");
 
             var client = _httpClientFactory.CreateClient();
 
@@ -116,42 +202,75 @@ namespace BloodDonationAPI.API.Services
 
                 try
                 {
-                    using var response = await client.PostAsJsonAsync(
-                        ExpoPushUrl,
-                        messages);
+                    using var response =
+                        await client.PostAsJsonAsync(
+                            ExpoPushUrl,
+                            messages);
 
-                    var responseBody = await response.Content.ReadAsStringAsync();
+                    var responseBody =
+                        await response.Content.ReadAsStringAsync();
 
                     if (!response.IsSuccessStatusCode)
                     {
                         _logger.LogWarning(
-                            "Expo push failed with status {Status}: {Body}",
+                            "Expo push failed. " +
+                            "Status: {Status}, Body: {Body}",
                             response.StatusCode,
                             responseBody);
+                    }
+                    else
+                    {
+                        _logger.LogInformation(
+                            "Expo push request accepted " +
+                            "for {Count} device tokens.",
+                            messages.Length);
                     }
                 }
                 catch (Exception ex)
                 {
-                    // A push delivery failure must not break the original API action.
-                    _logger.LogError(ex, "Failed to send Expo push notification.");
+                    // Push failure must not break
+                    // registration or blood request creation.
+                    _logger.LogError(
+                        ex,
+                        "Failed to send Expo push notification.");
                 }
             }
         }
 
-        private static string? GetString(object source, string propertyName)
+        // ============================================
+        // HELPER: GET STRING PROPERTY
+        // ============================================
+
+        private static string? GetString(
+            object source,
+            string propertyName)
         {
             var value = source.GetType()
-                .GetProperty(propertyName,
-                    BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase)
+                .GetProperty(
+                    propertyName,
+                    BindingFlags.Public |
+                    BindingFlags.Instance |
+                    BindingFlags.IgnoreCase)
                 ?.GetValue(source);
 
             return value?.ToString();
         }
 
-        private static Guid? TryGetGuid(object source, string propertyName)
+        // ============================================
+        // HELPER: GET GUID PROPERTY
+        // ============================================
+
+        private static Guid? TryGetGuid(
+            object source,
+            string propertyName)
         {
             var value = GetString(source, propertyName);
-            return Guid.TryParse(value, out var id) ? id : null;
+
+            return Guid.TryParse(
+                value,
+                out var id)
+                ? id
+                : null;
         }
     }
 }

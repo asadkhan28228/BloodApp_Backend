@@ -152,23 +152,20 @@ namespace BloodDonationAPI.BLL.Services
             // Try Blood Bank Inventory Reserve
             // -----------------------------------------------------
 
-            bool reserved = false;
+            if (dto.UnitsNeeded <= 0) return null;
 
+            int reservedUnits = 0;
             if (bloodType != "ANY")
             {
-                reserved =
-                    await _inventoryRepository.ReserveUnitsAsync(
-                        bloodType,
-                        dto.UnitsNeeded);
+                reservedUnits = await _inventoryRepository
+                    .ReserveAvailableUnitsAsync(bloodType, dto.UnitsNeeded);
             }
 
-            var bloodSource = reserved
+            int remainingUnits = dto.UnitsNeeded - reservedUnits;
+            bool reserved = remainingUnits == 0;
+            var bloodSource = reservedUnits > 0
                 ? "Blood Bank Reserve"
                 : "Community Donors";
-
-            var reservedUnits = reserved
-                ? dto.UnitsNeeded
-                : 0;
 
             // -----------------------------------------------------
             // Emergency information
@@ -196,8 +193,9 @@ namespace BloodDonationAPI.BLL.Services
             {
                 message =
                     $"Emergency ({category}) reported. " +
-                    $"Blood needed immediately at " +
-                    $"{dto.Location}!";
+                    $"{remainingUnits} unit(s) of {bloodType} blood needed " +
+                    $"from donors at {dto.Location}! " +
+                    $"{reservedUnits} unit(s) reserved from blood bank.";
             }
 
             var emergency = new EmergencyRequest
@@ -321,99 +319,103 @@ namespace BloodDonationAPI.BLL.Services
                 await _bloodRequestRepository.AddAsync(
                     bloodRequest);
 
-                // -------------------------------------------------
-                // Community Notification
-                // -------------------------------------------------
+                // Notify donors only when the blood bank could not reserve all requested units.
+                // Fully reserved emergencies remain saved, but generate no community alert.
+                if (!reserved)
+                {
+                    // -------------------------------------------------
+                    // Community Notification
+                    // -------------------------------------------------
 
-                var notification =
-                    new CommunityNotification
-                    {
-                        Id = Guid.NewGuid(),
+                    var notification =
+                        new CommunityNotification
+                        {
+                            Id = Guid.NewGuid(),
 
-                        Type = "emergency",
+                            Type = "emergency",
 
-                        Title = title,
+                            Title = title,
 
-                        Message = message,
+                            Message = message,
 
-                        Unread = true,
+                            Unread = true,
 
-                        Icon =
-                            category.Equals(
-                                "Fire",
-                                StringComparison.OrdinalIgnoreCase)
-                                ? "flame"
-                                : "alert-circle",
+                            Icon =
+                                category.Equals(
+                                    "Fire",
+                                    StringComparison.OrdinalIgnoreCase)
+                                    ? "flame"
+                                    : "alert-circle",
 
-                        Color =
-                            GetPriorityColor(priority),
+                            Color =
+                                GetPriorityColor(priority),
 
-                        ReporterUid =
-                            currentUserId,
+                            ReporterUid =
+                                currentUserId,
 
-                        ReporterName =
-                            user.FullName,
+                            ReporterName =
+                                user.FullName,
 
-                        BloodRequestId =
-                            bloodRequest.Id,
+                            BloodRequestId =
+                                bloodRequest.Id,
 
-                        EmergencyRequestId =
-                            emergency.Id,
+                            EmergencyRequestId =
+                                emergency.Id,
 
-                        Status = reserved
-                            ? "Blood Reserved"
-                            : "Active",
+                            Status = "Active",
 
-                        Category = category,
+                            Category = category,
 
-                        Priority = priority,
+                            Priority = priority,
 
-                        BloodType = bloodType,
+                            BloodType = bloodType,
 
-                        UnitsNeeded =
-                            dto.UnitsNeeded,
+                            UnitsNeeded =
+                                remainingUnits,
 
-                        BloodSource =
-                            bloodSource,
+                            BloodSource =
+                                bloodSource,
 
-                        ReservedUnits =
-                            reservedUnits,
+                            ReservedUnits =
+                                reservedUnits,
 
-                        Location =
-                            dto.Location.Trim(),
+                            Location =
+                                dto.Location.Trim(),
 
-                        Latitude =
-                            dto.Latitude,
+                            Latitude =
+                                dto.Latitude,
 
-                        Longitude =
-                            dto.Longitude,
+                            Longitude =
+                                dto.Longitude,
 
-                        PhoneNumber =
-                            dto.PhoneNumber.Trim(),
+                            PhoneNumber =
+                                dto.PhoneNumber.Trim(),
 
-                        Details =
-                            dto.Details?.Trim(),
+                            Details =
+                                dto.Details?.Trim(),
 
-                        ExpireAt =
-                            expireAt,
+                            ExpireAt =
+                                expireAt,
 
-                        CreatedAt =
-                            now,
+                            CreatedAt =
+                                now,
 
-                        UpdatedAt =
-                            now
-                    };
+                            UpdatedAt =
+                                now
+                        };
 
-                await _communityNotificationRepository
-                    .AddAsync(notification);
+                    await _communityNotificationRepository
+                        .AddAsync(notification);
 
-                // -------------------------------------------------
-                // Real-time SignalR notification
-                // -------------------------------------------------
+                    // -------------------------------------------------
+                    // Real-time SignalR notification
+                    // -------------------------------------------------
 
-                await _notificationPublisher
-                    .PublishCommunityNotificationAsync(
-                        notification);
+                    await _notificationPublisher
+                        .PublishCommunityNotificationAsync(
+                            notification);
+
+                }
 
                 return MapEmergencyToDto(
                     emergency);
@@ -421,7 +423,7 @@ namespace BloodDonationAPI.BLL.Services
             catch
             {
                 // Return reserved blood if creation fails
-                if (reserved && reservedUnits > 0)
+                if (reservedUnits > 0)
                 {
                     await _inventoryRepository
                         .ReleaseUnitsAsync(
@@ -547,22 +549,8 @@ namespace BloodDonationAPI.BLL.Services
             if (emergency.Status != "Active")
                 return false;
 
-            // -----------------------------------------------------
-            // Release reserved blood
-            // -----------------------------------------------------
-
-            if (emergency.ReservedUnits > 0 &&
-                emergency.BloodSource ==
-                    "Blood Bank Reserve" &&
-                emergency.BloodType != "ANY")
-            {
-                await _inventoryRepository
-                    .ReleaseUnitsAsync(
-                        emergency.BloodType,
-                        emergency.ReservedUnits);
-
-                emergency.ReservedUnits = 0;
-            }
+            // Reserved blood is consumed on resolution, not returned to stock.
+            // Cancellation still releases unused reserved units.
 
             var now = DateTime.UtcNow;
 
@@ -697,6 +685,14 @@ namespace BloodDonationAPI.BLL.Services
                 return null;
 
             if (emergency.Status != "Active")
+                return null;
+
+            // Do not accept new volunteers once a journey is claimed.
+            var currentResponses = await _responseRepository.GetByEmergencyAsync(emergencyId);
+            if (currentResponses.Any(x =>
+                string.Equals(x.Status, "On The Way", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(x.Status, "Arrived", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(x.Status, "Completed", StringComparison.OrdinalIgnoreCase)))
                 return null;
 
             if (emergency.ExpireAt.HasValue &&
@@ -880,83 +876,95 @@ namespace BloodDonationAPI.BLL.Services
                 Guid donorId,
                 string status)
         {
-            var response =
-                await _responseRepository
-                    .GetByIdAsync(responseId);
-
-            if (response == null)
+            if (string.IsNullOrWhiteSpace(status))
                 return false;
 
-            if (response.DonorId != donorId)
+            var normalizedStatus = status.Trim();
+
+            var response = await _responseRepository.GetByIdAsync(responseId);
+            if (response == null || response.DonorId != donorId)
                 return false;
 
-            var normalizedStatus =
-                status.Trim();
+            var emergency = await _emergencyRepository
+                .GetByIdAsync(response.EmergencyRequestId);
 
-            var allowedStatuses = new[]
+            if (emergency == null ||
+                !string.Equals(emergency.Status, "Active", StringComparison.OrdinalIgnoreCase) ||
+                (emergency.ExpireAt.HasValue && emergency.ExpireAt.Value <= DateTime.UtcNow))
+                return false;
+
+            // START JOURNEY: database transaction ensures that only
+            // one accepted donor can claim an emergency.
+            if (normalizedStatus.Equals("On The Way", StringComparison.OrdinalIgnoreCase))
             {
-                "Accepted",
-                "On The Way",
-                "Arrived",
-                "Completed"
-            };
+                // Do not allow an existing journey to be restarted.
+                if (!string.Equals(response.Status, "Accepted", StringComparison.OrdinalIgnoreCase))
+                    return false;
 
-            if (!allowedStatuses.Contains(
-                    normalizedStatus,
-                    StringComparer.OrdinalIgnoreCase))
+                var started = await _responseRepository
+                    .TryStartJourneyAsync(responseId, donorId);
+
+                if (!started)
+                    return false;
+
+                // ExecuteUpdateAsync bypasses EF's change tracker.
+                // Get a fresh no-tracking copy for the notification.
+                var donorResponses = await _responseRepository.GetByDonorAsync(donorId);
+                var updatedResponse = donorResponses.FirstOrDefault(x => x.Id == responseId);
+
+                if (updatedResponse != null)
+                {
+                    await CreateEmergencyResponseNotificationAsync(emergency, updatedResponse);
+                }
+
+                return true;
+            }
+
+            // Accepted is set when a donor first responds. It must
+            // not be used to reset an assigned journey.
+            if (normalizedStatus.Equals("Accepted", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            // Only the assigned donor may advance the journey.
+            // A completed response is terminal and keeps the claim.
+            var responses = await _responseRepository
+                .GetByEmergencyAsync(response.EmergencyRequestId);
+
+            var otherClaim = responses.Any(x =>
+                x.Id != responseId &&
+                (string.Equals(x.Status, "On The Way", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(x.Status, "Arrived", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(x.Status, "Completed", StringComparison.OrdinalIgnoreCase)));
+
+            if (otherClaim)
+                return false;
+
+            var now = DateTime.UtcNow;
+
+            if (normalizedStatus.Equals("Arrived", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!string.Equals(response.Status, "On The Way", StringComparison.OrdinalIgnoreCase))
+                    return false;
+
+                response.Status = "Arrived";
+                response.ArrivedAt ??= now;
+            }
+            else if (normalizedStatus.Equals("Completed", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!string.Equals(response.Status, "Arrived", StringComparison.OrdinalIgnoreCase))
+                    return false;
+
+                response.Status = "Completed";
+                response.CompletedAt ??= now;
+            }
+            else
             {
                 return false;
             }
 
-            var emergency =
-                await _emergencyRepository
-                    .GetByIdAsync(
-                        response.EmergencyRequestId);
-
-            if (emergency == null)
-                return false;
-
-            response.Status =
-                normalizedStatus;
-
-            response.UpdatedAt =
-                DateTime.UtcNow;
-
-            if (normalizedStatus.Equals(
-                    "On The Way",
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                response.OnTheWayAt ??=
-                    DateTime.UtcNow;
-            }
-
-            if (normalizedStatus.Equals(
-                    "Arrived",
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                response.ArrivedAt ??=
-                    DateTime.UtcNow;
-            }
-
-            if (normalizedStatus.Equals(
-                    "Completed",
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                response.CompletedAt ??=
-                    DateTime.UtcNow;
-            }
-
-            await _responseRepository
-                .UpdateAsync(response);
-
-            // -----------------------------------------------------
-            // Notify requester about response status
-            // -----------------------------------------------------
-
-            await CreateEmergencyResponseNotificationAsync(
-                emergency,
-                response);
-
+            response.UpdatedAt = now;
+            await _responseRepository.UpdateAsync(response);
+            await CreateEmergencyResponseNotificationAsync(emergency, response);
             return true;
         }
 
@@ -1308,7 +1316,7 @@ namespace BloodDonationAPI.BLL.Services
                 donorBloodType.Trim().ToUpper();
 
             emergencyBloodType =
-                emergencyBloodType.Trim().ToUpper(); 
+                emergencyBloodType.Trim().ToUpper();
 
             if (emergencyBloodType == "ANY")
                 return true;

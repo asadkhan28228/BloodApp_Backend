@@ -1,4 +1,8 @@
-﻿using System.Security.Claims;
+﻿
+using System;
+using System.Linq;
+using System.Security.Claims;
+using System.Threading.Tasks;
 using BloodDonationAPI.BLL.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -32,7 +36,8 @@ namespace BloodDonationAPI.API.Controllers
                 return Unauthorized();
 
             var notifications =
-                await _notificationService.GetMyNotificationsAsync(userId.Value);
+                await _notificationService
+                    .GetMyNotificationsAsync(userId.Value);
 
             return Ok(notifications);
         }
@@ -51,7 +56,8 @@ namespace BloodDonationAPI.API.Controllers
                 return Unauthorized();
 
             var count =
-                await _notificationService.GetUnreadCountAsync(userId.Value);
+                await _notificationService
+                    .GetUnreadCountAsync(userId.Value);
 
             return Ok(new
             {
@@ -68,14 +74,27 @@ namespace BloodDonationAPI.API.Controllers
         public async Task<IActionResult> GetCommunityNotifications()
         {
             var userId = GetCurrentUserId();
+
             if (userId == null)
                 return Unauthorized();
 
             var notifications =
-                await _notificationService.GetCommunityNotificationsAsync();
+                await _notificationService
+                    .GetCommunityNotificationsAsync();
 
-            // A user should not receive their own community alert back as a notification.
-            return Ok(notifications.Where(n => n.ReporterUid != userId.Value));
+            // Hide the current user's own community alerts.
+            // This includes:
+            // - Blood requests
+            // - Registration notifications
+            // - Emergency community notifications
+            //
+            // Other users can still see these notifications.
+
+            var filteredNotifications = notifications
+                .Where(n => n.ReporterUid != userId.Value)
+                .ToList();
+
+            return Ok(filteredNotifications);
         }
 
         // ==========================================
@@ -123,7 +142,8 @@ namespace BloodDonationAPI.API.Controllers
             if (userId == null)
                 return Unauthorized();
 
-            await _notificationService.MarkAllAsReadAsync(userId.Value);
+            await _notificationService
+                .MarkAllAsReadAsync(userId.Value);
 
             return Ok(new
             {

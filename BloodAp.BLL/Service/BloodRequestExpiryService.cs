@@ -18,86 +18,51 @@ namespace BloodDonationAPI.BLL.Services
             _logger = logger;
         }
 
-        protected override async Task ExecuteAsync(
-            CancellationToken stoppingToken)
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _logger.LogInformation(
-                "Blood Request Expiry Service started.");
+            _logger.LogInformation("Blood Request Expiry Service started.");
 
-            // Backend start hote hi expired requests check karega
-            await DeleteExpiredRequestsAsync(stoppingToken);
-
+            // Check on startup and then every minute.
             while (!stoppingToken.IsCancellationRequested)
             {
                 try
                 {
-                    // Har 1 minute baad check
-                    await Task.Delay(
-                        TimeSpan.FromMinutes(1),
-                        stoppingToken);
-
-                    await DeleteExpiredRequestsAsync(stoppingToken);
+                    await DeleteExpiredRequestsAsync();
+                    await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
                 }
-                catch (OperationCanceledException)
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                 {
-                    // Backend normally stop hone par
                     break;
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(
-                        ex,
-                        "Blood request expiry service error.");
+                    _logger.LogError(ex, "Blood request expiry service error.");
+                    try
+                    {
+                        await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
+                    }
+                    catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                    {
+                        break;
+                    }
                 }
             }
 
-            _logger.LogInformation(
-                "Blood Request Expiry Service stopped.");
+            _logger.LogInformation("Blood Request Expiry Service stopped.");
         }
 
-        private async Task DeleteExpiredRequestsAsync(
-            CancellationToken stoppingToken)
+        private async Task DeleteExpiredRequestsAsync()
         {
-            try
+            using var scope = _scopeFactory.CreateScope();
+            var repository = scope.ServiceProvider
+                .GetRequiredService<IBloodRequestRepository>();
+
+            var deletedCount = await repository.DeleteExpiredAsync(DateTime.UtcNow);
+            if (deletedCount > 0)
             {
-                using var scope = _scopeFactory.CreateScope();
-
-                var repository =
-                    scope.ServiceProvider
-                        .GetRequiredService<IBloodRequestRepository>();
-
-                var requests =
-                    await repository.GetAllAsync();
-
-                var now = DateTime.UtcNow;
-
-                var expiredRequests = requests
-                    .Where(request =>
-                        request.ExpireAt.HasValue &&
-                        request.ExpireAt.Value <= now)
-                    .ToList();
-
-                foreach (var request in expiredRequests)
-                {
-                    await repository.DeleteAsync(request);
-
-                    _logger.LogInformation(
-                        "Expired blood request deleted: {RequestId}",
-                        request.Id);
-                }
-
-                if (expiredRequests.Count > 0)
-                {
-                    _logger.LogInformation(
-                        "{Count} expired blood request(s) deleted.",
-                        expiredRequests.Count);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(
-                    ex,
-                    "Failed to delete expired blood requests.");
+                _logger.LogInformation(
+                    "Automatically deleted {Count} unanswered blood request(s) older than 24 hours.",
+                    deletedCount);
             }
         }
     }

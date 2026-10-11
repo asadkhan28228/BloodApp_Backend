@@ -1,6 +1,12 @@
-﻿using System.Security.Claims;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Security.Claims;
 using BloodDonationAPI.BLL.DTOs.Emergency;
 using BloodDonationAPI.BLL.Interfaces;
+using BloodDonationAPI.API.Hubs;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -12,11 +18,17 @@ namespace BloodDonationAPI.API.Controllers
     public class EmergencyController : ControllerBase
     {
         private readonly IEmergencyService _emergencyService;
+        private readonly IHubContext<NotificationHub> _hubContext;
+        private readonly ILogger<EmergencyController> _logger;
 
         public EmergencyController(
-            IEmergencyService emergencyService)
+            IEmergencyService emergencyService,
+            IHubContext<NotificationHub> hubContext,
+            ILogger<EmergencyController> logger)
         {
             _emergencyService = emergencyService;
+            _hubContext = hubContext;
+            _logger = logger;
         }
 
         // =========================================================
@@ -46,10 +58,35 @@ namespace BloodDonationAPI.API.Controllers
         [HttpGet("active")]
         public async Task<IActionResult> GetActive()
         {
-            var emergencies =
-                await _emergencyService.GetActiveAsync();
+            var userId = GetCurrentUserId();
+            if (userId == null) return Unauthorized();
 
-            return Ok(emergencies);
+            var role = GetCurrentUserRole();
+            var emergencies = await _emergencyService.GetActiveAsync();
+            if (IsAdmin(role)) return Ok(emergencies);
+
+            // Reporter and the first journey donor keep seeing the request.
+            // All other donors stop receiving it from the active API.
+            var visible = new List<EmergencyRequestDto>();
+            foreach (var emergency in emergencies)
+            {
+                if (emergency.ReporterUid == userId.Value)
+                {
+                    visible.Add(emergency);
+                    continue;
+                }
+
+                var responses = await _emergencyService.GetResponsesAsync(emergency.Id);
+                var assigned = responses.FirstOrDefault(r =>
+                    r.Status.Equals("On The Way", StringComparison.OrdinalIgnoreCase) ||
+                    r.Status.Equals("Arrived", StringComparison.OrdinalIgnoreCase) ||
+                    r.Status.Equals("Completed", StringComparison.OrdinalIgnoreCase));
+
+                if (assigned == null || assigned.DonorId == userId.Value)
+                    visible.Add(emergency);
+            }
+
+            return Ok(visible);
         }
 
         // =========================================================
@@ -143,6 +180,8 @@ namespace BloodDonationAPI.API.Controllers
                 });
             }
 
+            await BroadcastEmergencyUpdatedAsync(emergency.Id);
+
             return CreatedAtAction(
                 nameof(GetById),
                 new
@@ -165,6 +204,16 @@ namespace BloodDonationAPI.API.Controllers
             if (donorId == null)
                 return Unauthorized();
 
+            // Prevent new donor responses after a journey is assigned.
+            var existingResponses = await _emergencyService.GetResponsesAsync(id);
+            if (existingResponses.Any(r =>
+                r.Status.Equals("On The Way", StringComparison.OrdinalIgnoreCase) ||
+                r.Status.Equals("Arrived", StringComparison.OrdinalIgnoreCase) ||
+                r.Status.Equals("Completed", StringComparison.OrdinalIgnoreCase)))
+            {
+                return Conflict(new { message = "This emergency already has an assigned donor." });
+            }
+
             var response =
                 await _emergencyService.RespondAsync(
                     id,
@@ -181,6 +230,7 @@ namespace BloodDonationAPI.API.Controllers
                 });
             }
 
+            await BroadcastEmergencyUpdatedAsync(id);
             return Ok(response);
         }
 
@@ -292,6 +342,11 @@ namespace BloodDonationAPI.API.Controllers
                 });
             }
 
+            var updatedResponses = await _emergencyService.GetMyResponsesAsync(donorId.Value);
+            var updatedResponse = updatedResponses.FirstOrDefault(r => r.Id == responseId);
+            if (updatedResponse != null)
+                await BroadcastEmergencyUpdatedAsync(updatedResponse.EmergencyRequestId);
+
             return Ok(new
             {
                 message =
@@ -327,6 +382,11 @@ namespace BloodDonationAPI.API.Controllers
                         "Emergency response could not be completed."
                 });
             }
+
+            var completedResponses = await _emergencyService.GetMyResponsesAsync(donorId.Value);
+            var completedResponse = completedResponses.FirstOrDefault(r => r.Id == responseId);
+            if (completedResponse != null)
+                await BroadcastEmergencyUpdatedAsync(completedResponse.EmergencyRequestId);
 
             return Ok(new
             {
@@ -365,6 +425,8 @@ namespace BloodDonationAPI.API.Controllers
                 });
             }
 
+            await BroadcastEmergencyUpdatedAsync(id);
+
             return Ok(new
             {
                 message =
@@ -402,11 +464,29 @@ namespace BloodDonationAPI.API.Controllers
                 });
             }
 
+            await BroadcastEmergencyUpdatedAsync(id);
+
             return Ok(new
             {
                 message =
                     "Emergency resolved successfully."
             });
+        }
+
+        private async Task BroadcastEmergencyUpdatedAsync(Guid emergencyId)
+        {
+            try
+            {
+                // Broadcast only the ID; clients fetch their own authorized view.
+                // This also works after an emergency is deleted/cancelled.
+                await _hubContext.Clients.All.SendAsync(
+                    "EmergencyUpdated", new { emergencyId = emergencyId.ToString() });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "Could not publish live update for emergency {EmergencyId}", emergencyId);
+            }
         }
 
         // =========================================================
