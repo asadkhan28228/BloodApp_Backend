@@ -37,6 +37,8 @@
         // Number of lives saved by this donor
         public int LivesSaved { get; set; }
 
+        public int DonatedMl { get; set; }
+
         public string? PushToken { get; set; }
     }
 }

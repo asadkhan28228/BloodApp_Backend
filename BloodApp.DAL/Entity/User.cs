@@ -58,6 +58,8 @@ namespace BloodDonationAPI.DAL.Models
 
         public int LivesSaved { get; set; } = 0;
 
+        public int DonatedMl { get; set; } = 0;
+
         // PROFILE
 
         [MaxLength(500)]

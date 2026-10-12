@@ -288,12 +288,12 @@ var app = builder.Build();
 // OPENAPI
 // =====================================================
 
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
+//if (app.Environment.IsDevelopment())
+//{
+//    app.MapOpenApi();
+//}
 
-
+app.MapOpenApi();
 // =====================================================
 // NOTE ABOUT HTTPS
 // =====================================================

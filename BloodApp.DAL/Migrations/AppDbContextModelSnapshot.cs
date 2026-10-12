@@ -23,926 +23,931 @@ namespace BloodApp.DAL.Migrations
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
             modelBuilder.Entity("BloodApp.DAL.Entity.BloodDonationAPI.DAL.Models.EmailVerificationToken", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+            {
+                b.Property<Guid>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
+                b.Property<DateTime>("CreatedAt")
+                    .HasColumnType("datetime2");
 
-                    b.Property<DateTime>("ExpiresAt")
-                        .HasColumnType("datetime2");
+                b.Property<DateTime>("ExpiresAt")
+                    .HasColumnType("datetime2");
 
-                    b.Property<bool>("IsUsed")
-                        .HasColumnType("bit");
+                b.Property<bool>("IsUsed")
+                    .HasColumnType("bit");
 
-                    b.Property<string>("TokenHash")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
+                b.Property<string>("TokenHash")
+                    .IsRequired()
+                    .HasMaxLength(64)
+                    .HasColumnType("nvarchar(64)");
 
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
+                b.Property<Guid>("UserId")
+                    .HasColumnType("uniqueidentifier");
 
-                    b.HasKey("Id");
+                b.HasKey("Id");
 
-                    b.HasIndex("TokenHash")
-                        .IsUnique();
+                b.HasIndex("TokenHash")
+                    .IsUnique();
 
-                    b.HasIndex("UserId");
+                b.HasIndex("UserId");
 
-                    b.ToTable("EmailVerificationTokens");
-                });
+                b.ToTable("EmailVerificationTokens");
+            });
 
             modelBuilder.Entity("BloodDonationAPI.DAL.Models.BloodBankSetting", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+            {
+                b.Property<int>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("Address")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                b.Property<string>("Address")
+                    .IsRequired()
+                    .HasMaxLength(500)
+                    .HasColumnType("nvarchar(500)");
 
-                    b.Property<double?>("Latitude")
-                        .HasColumnType("float");
+                b.Property<double?>("Latitude")
+                    .HasColumnType("float");
 
-                    b.Property<double?>("Longitude")
-                        .HasColumnType("float");
+                b.Property<double?>("Longitude")
+                    .HasColumnType("float");
 
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
+                b.Property<string>("Name")
+                    .IsRequired()
+                    .HasMaxLength(150)
+                    .HasColumnType("nvarchar(150)");
 
-                    b.Property<string>("PhoneNumber")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
+                b.Property<string>("PhoneNumber")
+                    .IsRequired()
+                    .HasMaxLength(30)
+                    .HasColumnType("nvarchar(30)");
 
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
+                b.Property<DateTime>("UpdatedAt")
+                    .HasColumnType("datetime2");
 
-                    b.HasKey("Id");
+                b.HasKey("Id");
 
-                    b.ToTable("BloodBankSettings");
-                });
+                b.ToTable("BloodBankSettings");
+            });
 
             modelBuilder.Entity("BloodDonationAPI.DAL.Models.BloodBatch", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+            {
+                b.Property<Guid>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime>("AddedAt")
-                        .HasColumnType("datetime2");
+                b.Property<DateTime>("AddedAt")
+                    .HasColumnType("datetime2");
 
-                    b.Property<string>("BloodType")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)");
+                b.Property<string>("BloodType")
+                    .IsRequired()
+                    .HasMaxLength(10)
+                    .HasColumnType("nvarchar(10)");
 
-                    b.Property<DateTime>("ExpiresAt")
-                        .HasColumnType("datetime2");
+                b.Property<DateTime>("ExpiresAt")
+                    .HasColumnType("datetime2");
 
-                    b.Property<bool>("IsExpired")
-                        .HasColumnType("bit");
+                b.Property<bool>("IsExpired")
+                    .HasColumnType("bit");
 
-                    b.Property<int>("Units")
-                        .HasColumnType("int");
+                b.Property<int>("Units")
+                    .HasColumnType("int");
 
-                    b.HasKey("Id");
+                b.HasKey("Id");
 
-                    b.HasIndex("BloodType");
+                b.HasIndex("BloodType");
 
-                    b.HasIndex("ExpiresAt");
+                b.HasIndex("ExpiresAt");
 
-                    b.HasIndex("BloodType", "ExpiresAt");
+                b.HasIndex("BloodType", "ExpiresAt");
 
-                    b.ToTable("BloodBatches");
-                });
+                b.ToTable("BloodBatches");
+            });
 
             modelBuilder.Entity("BloodDonationAPI.DAL.Models.BloodInventory", b =>
-                {
-                    b.Property<string>("BloodType")
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)");
+            {
+                b.Property<string>("BloodType")
+                    .HasMaxLength(10)
+                    .HasColumnType("nvarchar(10)");
 
-                    b.Property<int>("Units")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(0);
+                b.Property<int>("Units")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("int")
+                    .HasDefaultValue(0);
 
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
+                b.Property<DateTime>("UpdatedAt")
+                    .HasColumnType("datetime2");
 
-                    b.HasKey("BloodType");
+                b.HasKey("BloodType");
 
-                    b.ToTable("BloodInventory");
-                });
+                b.ToTable("BloodInventory");
+            });
 
             modelBuilder.Entity("BloodDonationAPI.DAL.Models.BloodRequest", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+            {
+                b.Property<Guid>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("AdditionalNotes")
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
+                b.Property<string>("AdditionalNotes")
+                    .HasMaxLength(2000)
+                    .HasColumnType("nvarchar(2000)");
 
-                    b.Property<string>("BloodSource")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
+                b.Property<string>("BloodSource")
+                    .HasMaxLength(50)
+                    .HasColumnType("nvarchar(50)");
 
-                    b.Property<string>("BloodType")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)");
+                b.Property<string>("BloodType")
+                    .IsRequired()
+                    .HasMaxLength(10)
+                    .HasColumnType("nvarchar(10)");
 
-                    b.Property<string>("ContactPhone")
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
+                b.Property<string>("ContactPhone")
+                    .HasMaxLength(30)
+                    .HasColumnType("nvarchar(30)");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
+                b.Property<DateTime>("CreatedAt")
+                    .HasColumnType("datetime2");
 
-                    b.Property<Guid?>("EmergencyId")
-                        .HasColumnType("uniqueidentifier");
+                b.Property<Guid?>("EmergencyId")
+                    .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime?>("ExpireAt")
-                        .HasColumnType("datetime2");
+                b.Property<DateTime?>("ExpireAt")
+                    .HasColumnType("datetime2");
 
-                    b.Property<string>("HospitalName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                b.Property<string>("HospitalName")
+                    .IsRequired()
+                    .HasMaxLength(200)
+                    .HasColumnType("nvarchar(200)");
 
-                    b.Property<double?>("Latitude")
-                        .HasColumnType("float");
+                b.Property<double?>("Latitude")
+                    .HasColumnType("float");
 
-                    b.Property<string>("Location")
-                        .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)");
+                b.Property<string>("Location")
+                    .HasMaxLength(300)
+                    .HasColumnType("nvarchar(300)");
 
-                    b.Property<double?>("Longitude")
-                        .HasColumnType("float");
+                b.Property<double?>("Longitude")
+                    .HasColumnType("float");
 
-                    b.Property<string>("PatientName")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
+                b.Property<string>("PatientName")
+                    .IsRequired()
+                    .HasMaxLength(150)
+                    .HasColumnType("nvarchar(150)");
 
-                    b.Property<string>("ReporterName")
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
+                b.Property<string>("ReporterName")
+                    .HasMaxLength(150)
+                    .HasColumnType("nvarchar(150)");
 
-                    b.Property<Guid>("ReporterUid")
-                        .HasColumnType("uniqueidentifier");
+                b.Property<Guid>("ReporterUid")
+                    .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("RequestType")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)")
-                        .HasDefaultValue("BloodRequest");
+                b.Property<string>("RequestType")
+                    .IsRequired()
+                    .ValueGeneratedOnAdd()
+                    .HasMaxLength(30)
+                    .HasColumnType("nvarchar(30)")
+                    .HasDefaultValue("BloodRequest");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)")
-                        .HasDefaultValue("Pending");
+                b.Property<string>("Status")
+                    .IsRequired()
+                    .ValueGeneratedOnAdd()
+                    .HasMaxLength(30)
+                    .HasColumnType("nvarchar(30)")
+                    .HasDefaultValue("Pending");
 
-                    b.Property<int>("UnitsNeeded")
-                        .HasColumnType("int");
+                b.Property<int>("UnitsNeeded")
+                    .HasColumnType("int");
 
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
+                b.Property<DateTime?>("UpdatedAt")
+                    .HasColumnType("datetime2");
 
-                    b.Property<string>("Urgency")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
+                b.Property<string>("Urgency")
+                    .IsRequired()
+                    .HasMaxLength(30)
+                    .HasColumnType("nvarchar(30)");
 
-                    b.HasKey("Id");
+                b.HasKey("Id");
 
-                    b.HasIndex("EmergencyId");
+                b.HasIndex("EmergencyId");
 
-                    b.HasIndex("ReporterUid");
+                b.HasIndex("ReporterUid");
 
-                    b.ToTable("BloodRequests");
-                });
+                b.ToTable("BloodRequests");
+            });
 
             modelBuilder.Entity("BloodDonationAPI.DAL.Models.BloodRequestResponse", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+            {
+                b.Property<Guid>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("BloodRequestId")
-                        .HasColumnType("uniqueidentifier");
+                b.Property<Guid>("BloodRequestId")
+                    .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("BloodType")
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)");
+                b.Property<string>("BloodType")
+                    .HasMaxLength(10)
+                    .HasColumnType("nvarchar(10)");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
+                b.Property<DateTime>("CreatedAt")
+                    .HasColumnType("datetime2");
 
-                    b.Property<Guid>("DonorId")
-                        .HasColumnType("uniqueidentifier");
+                b.Property<Guid>("DonorId")
+                    .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("DonorName")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
+                b.Property<string>("DonorName")
+                    .IsRequired()
+                    .HasMaxLength(150)
+                    .HasColumnType("nvarchar(150)");
 
-                    b.Property<string>("DonorPhone")
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
+                b.Property<string>("DonorPhone")
+                    .HasMaxLength(30)
+                    .HasColumnType("nvarchar(30)");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)")
-                        .HasDefaultValue("Pending");
+                b.Property<string>("Status")
+                    .IsRequired()
+                    .ValueGeneratedOnAdd()
+                    .HasMaxLength(30)
+                    .HasColumnType("nvarchar(30)")
+                    .HasDefaultValue("Pending");
 
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
+                b.Property<DateTime?>("UpdatedAt")
+                    .HasColumnType("datetime2");
 
-                    b.HasKey("Id");
+                b.HasKey("Id");
 
-                    b.HasIndex("BloodRequestId");
+                b.HasIndex("BloodRequestId");
 
-                    b.HasIndex("DonorId");
+                b.HasIndex("DonorId");
 
-                    b.HasIndex("BloodRequestId", "DonorId")
-                        .IsUnique();
+                b.HasIndex("BloodRequestId", "DonorId")
+                    .IsUnique();
 
-                    b.ToTable("BloodRequestResponses");
-                });
+                b.ToTable("BloodRequestResponses");
+            });
 
             modelBuilder.Entity("BloodDonationAPI.DAL.Models.CommunityNotification", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+            {
+                b.Property<Guid>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid?>("BloodRequestId")
-                        .HasColumnType("uniqueidentifier");
+                b.Property<Guid?>("BloodRequestId")
+                    .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("BloodSource")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
+                b.Property<string>("BloodSource")
+                    .HasMaxLength(50)
+                    .HasColumnType("nvarchar(50)");
 
-                    b.Property<string>("BloodType")
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)");
+                b.Property<string>("BloodType")
+                    .HasMaxLength(10)
+                    .HasColumnType("nvarchar(10)");
 
-                    b.Property<string>("Category")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
+                b.Property<string>("Category")
+                    .HasMaxLength(50)
+                    .HasColumnType("nvarchar(50)");
 
-                    b.Property<string>("Color")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
+                b.Property<string>("Color")
+                    .HasMaxLength(20)
+                    .HasColumnType("nvarchar(20)");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
+                b.Property<DateTime>("CreatedAt")
+                    .HasColumnType("datetime2");
 
-                    b.Property<string>("Details")
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
+                b.Property<string>("Details")
+                    .HasMaxLength(2000)
+                    .HasColumnType("nvarchar(2000)");
 
-                    b.Property<Guid?>("EmergencyRequestId")
-                        .HasColumnType("uniqueidentifier");
+                b.Property<Guid?>("EmergencyRequestId")
+                    .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime?>("ExpireAt")
-                        .HasColumnType("datetime2");
+                b.Property<DateTime?>("ExpireAt")
+                    .HasColumnType("datetime2");
 
-                    b.Property<string>("Icon")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                b.Property<string>("Icon")
+                    .HasMaxLength(100)
+                    .HasColumnType("nvarchar(100)");
 
-                    b.Property<double?>("Latitude")
-                        .HasColumnType("float");
+                b.Property<double?>("Latitude")
+                    .HasColumnType("float");
 
-                    b.Property<string>("Location")
-                        .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)");
+                b.Property<string>("Location")
+                    .HasMaxLength(300)
+                    .HasColumnType("nvarchar(300)");
 
-                    b.Property<double?>("Longitude")
-                        .HasColumnType("float");
+                b.Property<double?>("Longitude")
+                    .HasColumnType("float");
 
-                    b.Property<string>("Message")
-                        .IsRequired()
-                        .HasMaxLength(1500)
-                        .HasColumnType("nvarchar(1500)");
+                b.Property<string>("Message")
+                    .IsRequired()
+                    .HasMaxLength(1500)
+                    .HasColumnType("nvarchar(1500)");
 
-                    b.Property<string>("PhoneNumber")
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
+                b.Property<string>("PhoneNumber")
+                    .HasMaxLength(30)
+                    .HasColumnType("nvarchar(30)");
 
-                    b.Property<string>("Priority")
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
+                b.Property<string>("Priority")
+                    .HasMaxLength(30)
+                    .HasColumnType("nvarchar(30)");
 
-                    b.Property<string>("ReporterName")
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
+                b.Property<string>("ReporterName")
+                    .HasMaxLength(150)
+                    .HasColumnType("nvarchar(150)");
 
-                    b.Property<Guid?>("ReporterUid")
-                        .HasColumnType("uniqueidentifier");
+                b.Property<Guid?>("ReporterUid")
+                    .HasColumnType("uniqueidentifier");
 
-                    b.Property<int?>("ReservedUnits")
-                        .HasColumnType("int");
+                b.Property<int?>("ReservedUnits")
+                    .HasColumnType("int");
 
-                    b.Property<string>("Status")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
+                b.Property<string>("Status")
+                    .HasMaxLength(50)
+                    .HasColumnType("nvarchar(50)");
 
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(250)
-                        .HasColumnType("nvarchar(250)");
+                b.Property<string>("Title")
+                    .IsRequired()
+                    .HasMaxLength(250)
+                    .HasColumnType("nvarchar(250)");
 
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
+                b.Property<string>("Type")
+                    .IsRequired()
+                    .HasMaxLength(50)
+                    .HasColumnType("nvarchar(50)");
 
-                    b.Property<int?>("UnitsNeeded")
-                        .HasColumnType("int");
+                b.Property<int?>("UnitsNeeded")
+                    .HasColumnType("int");
 
-                    b.Property<bool>("Unread")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(true);
+                b.Property<bool>("Unread")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("bit")
+                    .HasDefaultValue(true);
 
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
+                b.Property<DateTime?>("UpdatedAt")
+                    .HasColumnType("datetime2");
 
-                    b.HasKey("Id");
+                b.HasKey("Id");
 
-                    b.HasIndex("BloodRequestId");
+                b.HasIndex("BloodRequestId");
 
-                    b.HasIndex("CreatedAt");
+                b.HasIndex("CreatedAt");
 
-                    b.HasIndex("EmergencyRequestId");
+                b.HasIndex("EmergencyRequestId");
 
-                    b.HasIndex("Type");
+                b.HasIndex("Type");
 
-                    b.ToTable("CommunityNotifications");
-                });
+                b.ToTable("CommunityNotifications");
+            });
 
             modelBuilder.Entity("BloodDonationAPI.DAL.Models.EmergencyRequest", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+            {
+                b.Property<Guid>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("BloodSource")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
+                b.Property<string>("BloodSource")
+                    .HasMaxLength(50)
+                    .HasColumnType("nvarchar(50)");
 
-                    b.Property<string>("BloodType")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)");
+                b.Property<string>("BloodType")
+                    .IsRequired()
+                    .HasMaxLength(10)
+                    .HasColumnType("nvarchar(10)");
 
-                    b.Property<string>("Category")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
+                b.Property<string>("Category")
+                    .IsRequired()
+                    .HasMaxLength(50)
+                    .HasColumnType("nvarchar(50)");
 
-                    b.Property<string>("Color")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
+                b.Property<string>("Color")
+                    .HasMaxLength(20)
+                    .HasColumnType("nvarchar(20)");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
+                b.Property<DateTime>("CreatedAt")
+                    .HasColumnType("datetime2");
 
-                    b.Property<string>("Details")
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
+                b.Property<string>("Details")
+                    .HasMaxLength(2000)
+                    .HasColumnType("nvarchar(2000)");
 
-                    b.Property<DateTime?>("ExpireAt")
-                        .HasColumnType("datetime2");
+                b.Property<DateTime?>("ExpireAt")
+                    .HasColumnType("datetime2");
 
-                    b.Property<string>("Icon")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                b.Property<string>("Icon")
+                    .HasMaxLength(100)
+                    .HasColumnType("nvarchar(100)");
 
-                    b.Property<double?>("Latitude")
-                        .HasColumnType("float");
+                b.Property<double?>("Latitude")
+                    .HasColumnType("float");
 
-                    b.Property<string>("Location")
-                        .IsRequired()
-                        .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)");
+                b.Property<string>("Location")
+                    .IsRequired()
+                    .HasMaxLength(300)
+                    .HasColumnType("nvarchar(300)");
 
-                    b.Property<double?>("Longitude")
-                        .HasColumnType("float");
+                b.Property<double?>("Longitude")
+                    .HasColumnType("float");
 
-                    b.Property<string>("Message")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
+                b.Property<string>("Message")
+                    .IsRequired()
+                    .HasMaxLength(1000)
+                    .HasColumnType("nvarchar(1000)");
 
-                    b.Property<string>("PhoneNumber")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
+                b.Property<string>("PhoneNumber")
+                    .IsRequired()
+                    .HasMaxLength(30)
+                    .HasColumnType("nvarchar(30)");
 
-                    b.Property<string>("Priority")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)")
-                        .HasDefaultValue("High");
+                b.Property<string>("Priority")
+                    .IsRequired()
+                    .ValueGeneratedOnAdd()
+                    .HasMaxLength(30)
+                    .HasColumnType("nvarchar(30)")
+                    .HasDefaultValue("High");
 
-                    b.Property<string>("ReporterName")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
+                b.Property<string>("ReporterName")
+                    .IsRequired()
+                    .HasMaxLength(150)
+                    .HasColumnType("nvarchar(150)");
 
-                    b.Property<Guid>("ReporterUid")
-                        .HasColumnType("uniqueidentifier");
+                b.Property<Guid>("ReporterUid")
+                    .HasColumnType("uniqueidentifier");
 
-                    b.Property<int>("ReservedUnits")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(0);
+                b.Property<int>("ReservedUnits")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("int")
+                    .HasDefaultValue(0);
 
-                    b.Property<DateTime?>("ResolvedAt")
-                        .HasColumnType("datetime2");
+                b.Property<DateTime?>("ResolvedAt")
+                    .HasColumnType("datetime2");
 
-                    b.Property<int>("RespondingDonorsCount")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(0);
+                b.Property<int>("RespondingDonorsCount")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("int")
+                    .HasDefaultValue(0);
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
-                        .HasDefaultValue("Active");
+                b.Property<string>("Status")
+                    .IsRequired()
+                    .ValueGeneratedOnAdd()
+                    .HasMaxLength(50)
+                    .HasColumnType("nvarchar(50)")
+                    .HasDefaultValue("Active");
 
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(250)
-                        .HasColumnType("nvarchar(250)");
+                b.Property<string>("Title")
+                    .IsRequired()
+                    .HasMaxLength(250)
+                    .HasColumnType("nvarchar(250)");
 
-                    b.Property<int>("UnitsNeeded")
-                        .HasColumnType("int");
+                b.Property<int>("UnitsNeeded")
+                    .HasColumnType("int");
 
-                    b.Property<bool>("Unread")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(true);
+                b.Property<bool>("Unread")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("bit")
+                    .HasDefaultValue(true);
 
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
+                b.Property<DateTime>("UpdatedAt")
+                    .HasColumnType("datetime2");
 
-                    b.HasKey("Id");
+                b.HasKey("Id");
 
-                    b.HasIndex("ReporterUid");
+                b.HasIndex("ReporterUid");
 
-                    b.ToTable("EmergencyRequests");
-                });
+                b.ToTable("EmergencyRequests");
+            });
 
             modelBuilder.Entity("BloodDonationAPI.DAL.Models.EmergencyResponse", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+            {
+                b.Property<Guid>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime?>("ArrivedAt")
-                        .HasColumnType("datetime2");
+                b.Property<DateTime?>("ArrivedAt")
+                    .HasColumnType("datetime2");
 
-                    b.Property<string>("BloodType")
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)");
+                b.Property<string>("BloodType")
+                    .HasMaxLength(10)
+                    .HasColumnType("nvarchar(10)");
 
-                    b.Property<DateTime?>("CompletedAt")
-                        .HasColumnType("datetime2");
+                b.Property<DateTime?>("CompletedAt")
+                    .HasColumnType("datetime2");
 
-                    b.Property<Guid>("DonorId")
-                        .HasColumnType("uniqueidentifier");
+                b.Property<Guid>("DonorId")
+                    .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("DonorName")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
+                b.Property<string>("DonorName")
+                    .IsRequired()
+                    .HasMaxLength(150)
+                    .HasColumnType("nvarchar(150)");
 
-                    b.Property<string>("DonorPhone")
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
+                b.Property<string>("DonorPhone")
+                    .HasMaxLength(30)
+                    .HasColumnType("nvarchar(30)");
 
-                    b.Property<Guid>("EmergencyRequestId")
-                        .HasColumnType("uniqueidentifier");
+                b.Property<Guid>("EmergencyRequestId")
+                    .HasColumnType("uniqueidentifier");
 
-                    b.Property<double?>("Latitude")
-                        .HasColumnType("float");
+                b.Property<double?>("Latitude")
+                    .HasColumnType("float");
 
-                    b.Property<double?>("Longitude")
-                        .HasColumnType("float");
+                b.Property<double?>("Longitude")
+                    .HasColumnType("float");
 
-                    b.Property<DateTime?>("OnTheWayAt")
-                        .HasColumnType("datetime2");
+                b.Property<DateTime?>("OnTheWayAt")
+                    .HasColumnType("datetime2");
 
-                    b.Property<DateTime>("RespondedAt")
-                        .HasColumnType("datetime2");
+                b.Property<DateTime>("RespondedAt")
+                    .HasColumnType("datetime2");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)")
-                        .HasDefaultValue("Accepted");
+                b.Property<string>("Status")
+                    .IsRequired()
+                    .ValueGeneratedOnAdd()
+                    .HasMaxLength(30)
+                    .HasColumnType("nvarchar(30)")
+                    .HasDefaultValue("Accepted");
 
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
+                b.Property<DateTime?>("UpdatedAt")
+                    .HasColumnType("datetime2");
 
-                    b.HasKey("Id");
+                b.HasKey("Id");
 
-                    b.HasIndex("DonorId");
+                b.HasIndex("DonorId");
 
-                    b.HasIndex("EmergencyRequestId", "DonorId")
-                        .IsUnique();
+                b.HasIndex("EmergencyRequestId", "DonorId")
+                    .IsUnique();
 
-                    b.ToTable("EmergencyResponses");
-                });
+                b.ToTable("EmergencyResponses");
+            });
 
             modelBuilder.Entity("BloodDonationAPI.DAL.Models.Notification", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+            {
+                b.Property<Guid>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("Color")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
+                b.Property<string>("Color")
+                    .HasMaxLength(20)
+                    .HasColumnType("nvarchar(20)");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
+                b.Property<DateTime>("CreatedAt")
+                    .HasColumnType("datetime2");
 
-                    b.Property<string>("Icon")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                b.Property<string>("Icon")
+                    .HasMaxLength(100)
+                    .HasColumnType("nvarchar(100)");
 
-                    b.Property<string>("Message")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
+                b.Property<string>("Message")
+                    .IsRequired()
+                    .HasMaxLength(1000)
+                    .HasColumnType("nvarchar(1000)");
 
-                    b.Property<DateTime?>("ReadAt")
-                        .HasColumnType("datetime2");
+                b.Property<DateTime?>("ReadAt")
+                    .HasColumnType("datetime2");
 
-                    b.Property<string>("ReferenceId")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                b.Property<string>("ReferenceId")
+                    .HasMaxLength(100)
+                    .HasColumnType("nvarchar(100)");
 
-                    b.Property<string>("TargetScreen")
-                        .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)");
+                b.Property<string>("TargetScreen")
+                    .HasMaxLength(300)
+                    .HasColumnType("nvarchar(300)");
 
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(250)
-                        .HasColumnType("nvarchar(250)");
+                b.Property<string>("Title")
+                    .IsRequired()
+                    .HasMaxLength(250)
+                    .HasColumnType("nvarchar(250)");
 
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                b.Property<string>("Type")
+                    .IsRequired()
+                    .HasMaxLength(100)
+                    .HasColumnType("nvarchar(100)");
 
-                    b.Property<bool>("Unread")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(true);
+                b.Property<bool>("Unread")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("bit")
+                    .HasDefaultValue(true);
 
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
+                b.Property<Guid>("UserId")
+                    .HasColumnType("uniqueidentifier");
 
-                    b.HasKey("Id");
+                b.HasKey("Id");
 
-                    b.HasIndex("UserId");
+                b.HasIndex("UserId");
 
-                    b.HasIndex("UserId", "Unread");
+                b.HasIndex("UserId", "Unread");
 
-                    b.ToTable("Notifications");
-                });
+                b.ToTable("Notifications");
+            });
 
             modelBuilder.Entity("BloodDonationAPI.DAL.Models.PasswordResetToken", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+            {
+                b.Property<Guid>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
+                b.Property<DateTime>("CreatedAt")
+                    .HasColumnType("datetime2");
 
-                    b.Property<DateTime>("ExpiresAt")
-                        .HasColumnType("datetime2");
+                b.Property<DateTime>("ExpiresAt")
+                    .HasColumnType("datetime2");
 
-                    b.Property<bool>("IsUsed")
-                        .HasColumnType("bit");
+                b.Property<bool>("IsUsed")
+                    .HasColumnType("bit");
 
-                    b.Property<string>("Token")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                b.Property<string>("Token")
+                    .IsRequired()
+                    .HasMaxLength(500)
+                    .HasColumnType("nvarchar(500)");
 
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
+                b.Property<Guid>("UserId")
+                    .HasColumnType("uniqueidentifier");
 
-                    b.HasKey("Id");
+                b.HasKey("Id");
 
-                    b.HasIndex("Token");
+                b.HasIndex("Token");
 
-                    b.HasIndex("UserId");
+                b.HasIndex("UserId");
 
-                    b.ToTable("PasswordResetTokens");
-                });
+                b.ToTable("PasswordResetTokens");
+            });
 
             modelBuilder.Entity("BloodDonationAPI.DAL.Models.RefreshToken", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+            {
+                b.Property<Guid>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
+                b.Property<DateTime>("CreatedAt")
+                    .HasColumnType("datetime2");
 
-                    b.Property<DateTime>("ExpiresAt")
-                        .HasColumnType("datetime2");
+                b.Property<DateTime>("ExpiresAt")
+                    .HasColumnType("datetime2");
 
-                    b.Property<bool>("IsRevoked")
-                        .HasColumnType("bit");
+                b.Property<bool>("IsRevoked")
+                    .HasColumnType("bit");
 
-                    b.Property<string>("Token")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                b.Property<string>("Token")
+                    .IsRequired()
+                    .HasMaxLength(500)
+                    .HasColumnType("nvarchar(500)");
 
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
+                b.Property<Guid>("UserId")
+                    .HasColumnType("uniqueidentifier");
 
-                    b.HasKey("Id");
+                b.HasKey("Id");
 
-                    b.HasIndex("Token")
-                        .IsUnique();
+                b.HasIndex("Token")
+                    .IsUnique();
 
-                    b.HasIndex("UserId");
+                b.HasIndex("UserId");
 
-                    b.ToTable("RefreshTokens");
-                });
+                b.ToTable("RefreshTokens");
+            });
 
             modelBuilder.Entity("BloodDonationAPI.DAL.Models.User", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+            {
+                b.Property<Guid>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("uniqueidentifier");
 
-                    b.Property<bool>("AvailableToDonate")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(true);
+                b.Property<bool>("AvailableToDonate")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("bit")
+                    .HasDefaultValue(true);
 
-                    b.Property<string>("AvatarUrl")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                b.Property<string>("AvatarUrl")
+                    .HasMaxLength(500)
+                    .HasColumnType("nvarchar(500)");
 
-                    b.Property<string>("BloodType")
-                        .IsRequired()
-                        .HasMaxLength(5)
-                        .HasColumnType("nvarchar(5)");
+                b.Property<string>("BloodType")
+                    .IsRequired()
+                    .HasMaxLength(5)
+                    .HasColumnType("nvarchar(5)");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
+                b.Property<DateTime>("CreatedAt")
+                    .HasColumnType("datetime2");
 
-                    b.Property<int>("DonationsCount")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(0);
+                b.Property<int>("DonatedMl")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("int")
+                    .HasDefaultValue(0);
 
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
+                b.Property<int>("DonationsCount")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("int")
+                    .HasDefaultValue(0);
 
-                    b.Property<DateTime?>("EmailVerifiedAt")
-                        .HasColumnType("datetime2");
+                b.Property<string>("Email")
+                    .IsRequired()
+                    .HasMaxLength(150)
+                    .HasColumnType("nvarchar(150)");
 
-                    b.Property<string>("FullName")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
+                b.Property<DateTime?>("EmailVerifiedAt")
+                    .HasColumnType("datetime2");
 
-                    b.Property<string>("Gender")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
+                b.Property<string>("FullName")
+                    .IsRequired()
+                    .HasMaxLength(150)
+                    .HasColumnType("nvarchar(150)");
 
-                    b.Property<bool>("IsActive")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(true);
+                b.Property<string>("Gender")
+                    .HasMaxLength(20)
+                    .HasColumnType("nvarchar(20)");
 
-                    b.Property<bool>("IsEmailVerified")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false);
+                b.Property<bool>("IsActive")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("bit")
+                    .HasDefaultValue(true);
 
-                    b.Property<DateTime?>("LastDonationDate")
-                        .HasColumnType("datetime2");
+                b.Property<bool>("IsEmailVerified")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("bit")
+                    .HasDefaultValue(false);
 
-                    b.Property<double?>("Latitude")
-                        .HasColumnType("float");
+                b.Property<DateTime?>("LastDonationDate")
+                    .HasColumnType("datetime2");
 
-                    b.Property<int>("LivesSaved")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(0);
+                b.Property<double?>("Latitude")
+                    .HasColumnType("float");
 
-                    b.Property<string>("Location")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                b.Property<int>("LivesSaved")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("int")
+                    .HasDefaultValue(0);
 
-                    b.Property<double?>("Longitude")
-                        .HasColumnType("float");
+                b.Property<string>("Location")
+                    .HasMaxLength(200)
+                    .HasColumnType("nvarchar(200)");
 
-                    b.Property<string>("PasswordHash")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                b.Property<double?>("Longitude")
+                    .HasColumnType("float");
 
-                    b.Property<string>("PhoneNumber")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
+                b.Property<string>("PasswordHash")
+                    .IsRequired()
+                    .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("PushToken")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                b.Property<string>("PhoneNumber")
+                    .IsRequired()
+                    .HasMaxLength(30)
+                    .HasColumnType("nvarchar(30)");
 
-                    b.Property<string>("Role")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)")
-                        .HasDefaultValue("user");
+                b.Property<string>("PushToken")
+                    .HasMaxLength(500)
+                    .HasColumnType("nvarchar(500)");
 
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
+                b.Property<string>("Role")
+                    .IsRequired()
+                    .ValueGeneratedOnAdd()
+                    .HasMaxLength(30)
+                    .HasColumnType("nvarchar(30)")
+                    .HasDefaultValue("user");
 
-                    b.HasKey("Id");
+                b.Property<DateTime?>("UpdatedAt")
+                    .HasColumnType("datetime2");
 
-                    b.HasIndex("Email")
-                        .IsUnique();
+                b.HasKey("Id");
 
-                    b.ToTable("Users");
-                });
+                b.HasIndex("Email")
+                    .IsUnique();
+
+                b.ToTable("Users");
+            });
 
             modelBuilder.Entity("BloodApp.DAL.Entity.BloodDonationAPI.DAL.Models.EmailVerificationToken", b =>
-                {
-                    b.HasOne("BloodDonationAPI.DAL.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+            {
+                b.HasOne("BloodDonationAPI.DAL.Models.User", "User")
+                    .WithMany()
+                    .HasForeignKey("UserId")
+                    .OnDelete(DeleteBehavior.Cascade)
+                    .IsRequired();
 
-                    b.Navigation("User");
-                });
+                b.Navigation("User");
+            });
 
             modelBuilder.Entity("BloodDonationAPI.DAL.Models.BloodRequest", b =>
-                {
-                    b.HasOne("BloodDonationAPI.DAL.Models.EmergencyRequest", "Emergency")
-                        .WithMany("BloodRequests")
-                        .HasForeignKey("EmergencyId")
-                        .OnDelete(DeleteBehavior.SetNull);
+            {
+                b.HasOne("BloodDonationAPI.DAL.Models.EmergencyRequest", "Emergency")
+                    .WithMany("BloodRequests")
+                    .HasForeignKey("EmergencyId")
+                    .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("BloodDonationAPI.DAL.Models.User", "Reporter")
-                        .WithMany("BloodRequests")
-                        .HasForeignKey("ReporterUid")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                b.HasOne("BloodDonationAPI.DAL.Models.User", "Reporter")
+                    .WithMany("BloodRequests")
+                    .HasForeignKey("ReporterUid")
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .IsRequired();
 
-                    b.Navigation("Emergency");
+                b.Navigation("Emergency");
 
-                    b.Navigation("Reporter");
-                });
+                b.Navigation("Reporter");
+            });
 
             modelBuilder.Entity("BloodDonationAPI.DAL.Models.BloodRequestResponse", b =>
-                {
-                    b.HasOne("BloodDonationAPI.DAL.Models.BloodRequest", "BloodRequest")
-                        .WithMany("DonorResponses")
-                        .HasForeignKey("BloodRequestId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+            {
+                b.HasOne("BloodDonationAPI.DAL.Models.BloodRequest", "BloodRequest")
+                    .WithMany("DonorResponses")
+                    .HasForeignKey("BloodRequestId")
+                    .OnDelete(DeleteBehavior.Cascade)
+                    .IsRequired();
 
-                    b.HasOne("BloodDonationAPI.DAL.Models.User", "Donor")
-                        .WithMany()
-                        .HasForeignKey("DonorId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                b.HasOne("BloodDonationAPI.DAL.Models.User", "Donor")
+                    .WithMany()
+                    .HasForeignKey("DonorId")
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .IsRequired();
 
-                    b.Navigation("BloodRequest");
+                b.Navigation("BloodRequest");
 
-                    b.Navigation("Donor");
-                });
+                b.Navigation("Donor");
+            });
 
             modelBuilder.Entity("BloodDonationAPI.DAL.Models.EmergencyRequest", b =>
-                {
-                    b.HasOne("BloodDonationAPI.DAL.Models.User", "Reporter")
-                        .WithMany("EmergencyRequests")
-                        .HasForeignKey("ReporterUid")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+            {
+                b.HasOne("BloodDonationAPI.DAL.Models.User", "Reporter")
+                    .WithMany("EmergencyRequests")
+                    .HasForeignKey("ReporterUid")
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .IsRequired();
 
-                    b.Navigation("Reporter");
-                });
+                b.Navigation("Reporter");
+            });
 
             modelBuilder.Entity("BloodDonationAPI.DAL.Models.EmergencyResponse", b =>
-                {
-                    b.HasOne("BloodDonationAPI.DAL.Models.User", "Donor")
-                        .WithMany("EmergencyResponses")
-                        .HasForeignKey("DonorId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+            {
+                b.HasOne("BloodDonationAPI.DAL.Models.User", "Donor")
+                    .WithMany("EmergencyResponses")
+                    .HasForeignKey("DonorId")
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .IsRequired();
 
-                    b.HasOne("BloodDonationAPI.DAL.Models.EmergencyRequest", "EmergencyRequest")
-                        .WithMany("DonorResponses")
-                        .HasForeignKey("EmergencyRequestId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                b.HasOne("BloodDonationAPI.DAL.Models.EmergencyRequest", "EmergencyRequest")
+                    .WithMany("DonorResponses")
+                    .HasForeignKey("EmergencyRequestId")
+                    .OnDelete(DeleteBehavior.Cascade)
+                    .IsRequired();
 
-                    b.Navigation("Donor");
+                b.Navigation("Donor");
 
-                    b.Navigation("EmergencyRequest");
-                });
+                b.Navigation("EmergencyRequest");
+            });
 
             modelBuilder.Entity("BloodDonationAPI.DAL.Models.Notification", b =>
-                {
-                    b.HasOne("BloodDonationAPI.DAL.Models.User", "User")
-                        .WithMany("Notifications")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+            {
+                b.HasOne("BloodDonationAPI.DAL.Models.User", "User")
+                    .WithMany("Notifications")
+                    .HasForeignKey("UserId")
+                    .OnDelete(DeleteBehavior.Cascade)
+                    .IsRequired();
 
-                    b.Navigation("User");
-                });
+                b.Navigation("User");
+            });
 
             modelBuilder.Entity("BloodDonationAPI.DAL.Models.PasswordResetToken", b =>
-                {
-                    b.HasOne("BloodDonationAPI.DAL.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+            {
+                b.HasOne("BloodDonationAPI.DAL.Models.User", "User")
+                    .WithMany()
+                    .HasForeignKey("UserId")
+                    .OnDelete(DeleteBehavior.Cascade)
+                    .IsRequired();
 
-                    b.Navigation("User");
-                });
+                b.Navigation("User");
+            });
 
             modelBuilder.Entity("BloodDonationAPI.DAL.Models.RefreshToken", b =>
-                {
-                    b.HasOne("BloodDonationAPI.DAL.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+            {
+                b.HasOne("BloodDonationAPI.DAL.Models.User", "User")
+                    .WithMany()
+                    .HasForeignKey("UserId")
+                    .OnDelete(DeleteBehavior.Cascade)
+                    .IsRequired();
 
-                    b.Navigation("User");
-                });
+                b.Navigation("User");
+            });
 
             modelBuilder.Entity("BloodDonationAPI.DAL.Models.BloodRequest", b =>
-                {
-                    b.Navigation("DonorResponses");
-                });
+            {
+                b.Navigation("DonorResponses");
+            });
 
             modelBuilder.Entity("BloodDonationAPI.DAL.Models.EmergencyRequest", b =>
-                {
-                    b.Navigation("BloodRequests");
+            {
+                b.Navigation("BloodRequests");
 
-                    b.Navigation("DonorResponses");
-                });
+                b.Navigation("DonorResponses");
+            });
 
             modelBuilder.Entity("BloodDonationAPI.DAL.Models.User", b =>
-                {
-                    b.Navigation("BloodRequests");
+            {
+                b.Navigation("BloodRequests");
 
-                    b.Navigation("EmergencyRequests");
+                b.Navigation("EmergencyRequests");
 
-                    b.Navigation("EmergencyResponses");
+                b.Navigation("EmergencyResponses");
 
-                    b.Navigation("Notifications");
-                });
+                b.Navigation("Notifications");
+            });
 #pragma warning restore 612, 618
         }
     }

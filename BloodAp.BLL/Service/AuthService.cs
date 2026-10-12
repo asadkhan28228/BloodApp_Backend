@@ -582,6 +582,9 @@ namespace BloodDonationAPI.BLL.Services
                 LivesSaved =
                     user.LivesSaved,
 
+                DonatedMl =
+                    user.DonatedMl,
+
                 PushToken =
                     user.PushToken
             };

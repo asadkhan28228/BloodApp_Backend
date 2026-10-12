@@ -1,4 +1,5 @@
-﻿using System.Security.Claims;
+﻿
+using System.Security.Claims;
 using BloodDonationAPI.BLL.DTOs.User;
 using BloodDonationAPI.BLL.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -49,6 +50,16 @@ namespace BloodDonationAPI.API.Controllers
             });
         }
 
+        // GET: api/user/community-impact
+        // Returns community totals for all authenticated users.
+        [HttpGet("community-impact")]
+        public async Task<IActionResult> GetCommunityImpact()
+        {
+            var result = await _userService.GetCommunityImpactAsync();
+
+            return Ok(result);
+        }
+
         // GET: api/user/{id}
         [HttpGet("{id:guid}")]
         public async Task<IActionResult> GetById(Guid id)
@@ -73,10 +84,10 @@ namespace BloodDonationAPI.API.Controllers
         // GET: api/user/donors
         [HttpGet("donors")]
         public async Task<IActionResult> GetDonors(
-    [FromQuery] string? bloodType = null,
-    [FromQuery] bool? availableToDonate = null,
-    [FromQuery] double? latitude = null,
-    [FromQuery] double? longitude = null)
+            [FromQuery] string? bloodType = null,
+            [FromQuery] bool? availableToDonate = null,
+            [FromQuery] double? latitude = null,
+            [FromQuery] double? longitude = null)
         {
             var result = await _userService.GetDonorsAsync(
                 bloodType,
@@ -241,35 +252,35 @@ namespace BloodDonationAPI.API.Controllers
             });
         }
 
+        // PUT: api/user/admin/{id}/role
         [HttpPut("admin/{id:guid}/role")]
         [Authorize(Roles = "admin")]
-        public async Task<IActionResult> UpdateRole(Guid id, [FromBody] string role)
+        public async Task<IActionResult> UpdateRole(
+            Guid id,
+            [FromBody] string role)
         {
             var result = await _userService.UpdateRoleAsync(id, role);
-            if (!result) return BadRequest(new { message = "Invalid role or user not found." });
-            return Ok(new { message = "User role updated successfully." });
-        }
 
-        // Get logged-in user's ID from JWT
-        private Guid? GetCurrentUserId()
-        {
-            var userIdClaim =
-                User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-            if (!Guid.TryParse(userIdClaim, out var userId))
+            if (!result)
             {
-                return null;
+                return BadRequest(new
+                {
+                    message = "Invalid role or user not found."
+                });
             }
 
-            return userId;
+            return Ok(new
+            {
+                message = "User role updated successfully."
+            });
         }
 
+        // DELETE: api/user/admin/{id}
         [HttpDelete("admin/{id:guid}")]
         [Authorize(Roles = "admin")]
         public async Task<IActionResult> AdminDeactivateUser(Guid id)
         {
-            var result =
-                await _userService.DeactivateUserAsync(id);
+            var result = await _userService.DeactivateUserAsync(id);
 
             if (!result)
             {
@@ -285,17 +296,12 @@ namespace BloodDonationAPI.API.Controllers
             });
         }
 
-        // ============================================
-        // ADMIN ACTIVATE USER
         // PUT: api/user/admin/{id}/activate
-        // ============================================
-
         [HttpPut("admin/{id:guid}/activate")]
         [Authorize(Roles = "admin")]
         public async Task<IActionResult> AdminActivateUser(Guid id)
         {
-            var result =
-                await _userService.ActivateUserAsync(id);
+            var result = await _userService.ActivateUserAsync(id);
 
             if (!result)
             {
@@ -309,6 +315,20 @@ namespace BloodDonationAPI.API.Controllers
             {
                 message = "User activated successfully."
             });
+        }
+
+        // Get logged-in user's ID from JWT
+        private Guid? GetCurrentUserId()
+        {
+            var userIdClaim =
+                User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (!Guid.TryParse(userIdClaim, out var userId))
+            {
+                return null;
+            }
+
+            return userId;
         }
     }
 }

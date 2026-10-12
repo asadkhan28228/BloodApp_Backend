@@ -89,6 +89,9 @@ namespace BloodDonationAPI.DAL.Data
 
                 entity.Property(x => x.LivesSaved)
                     .HasDefaultValue(0);
+
+                entity.Property(x => x.DonatedMl)
+                    .HasDefaultValue(0);
             });
 
             // ==========================================

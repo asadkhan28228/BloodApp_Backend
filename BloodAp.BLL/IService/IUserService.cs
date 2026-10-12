@@ -9,11 +9,13 @@ namespace BloodDonationAPI.BLL.Interfaces
 
         Task<List<UserProfileDto>> GetAllAsync();
 
-            Task<List<DonorDto>> GetDonorsAsync(
-            string? bloodType = null,
-            bool? availableToDonate = null,
-            double? latitude = null,
-            double? longitude = null);
+        Task<CommunityImpactDto> GetCommunityImpactAsync();
+
+        Task<List<DonorDto>> GetDonorsAsync(
+        string? bloodType = null,
+        bool? availableToDonate = null,
+        double? latitude = null,
+        double? longitude = null);
 
         Task<UserProfileDto?> UpdateProfileAsync(
             Guid userId,

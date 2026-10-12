@@ -48,6 +48,26 @@ namespace BloodDonationAPI.BLL.Services
                 .ToList();
         }
         // =========================================================
+        // COMMUNITY IMPACT - GLOBAL TOTALS
+        // =========================================================
+        public async Task<CommunityImpactDto> GetCommunityImpactAsync()
+        {
+            var users = await _userRepository.GetAllAsync();
+            var allUsers = users.ToList();
+
+            return new CommunityImpactDto
+            {
+                Donations = allUsers.Sum(u => (long)u.DonationsCount),
+                LivesSaved = allUsers.Sum(u => (long)u.LivesSaved),
+                DonatedMl = allUsers.Sum(u => (long)u.DonatedMl),
+                BloodDonors = allUsers.Count(u =>
+                    u.IsActive &&
+                    string.Equals(u.Role, "user", StringComparison.OrdinalIgnoreCase) &&
+                    !string.IsNullOrWhiteSpace(u.BloodType))
+            };
+        }
+
+        // =========================================================
         // Get DonorAsync
         // =========================================================
 

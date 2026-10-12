@@ -814,7 +814,8 @@ namespace BloodDonationAPI.BLL.Services
                 .UpdateAsync(request);
 
             // ------------------------------------------
-            // Update donor stats immediately on confirm
+            // Donor stats must NOT change here: confirming
+            // a volunteer is not a completed donation.
             // ------------------------------------------
 
             var donor =
@@ -826,14 +827,6 @@ namespace BloodDonationAPI.BLL.Services
                 throw new KeyNotFoundException(
                     "Donor profile not found.");
             }
-
-            donor.DonationsCount += 1;
-            donor.LivesSaved += 1;
-            donor.LastDonationDate = DateTime.UtcNow;
-            donor.UpdatedAt = DateTime.UtcNow;
-
-            await _userRepository
-                .UpdateAsync(donor);
 
             // ------------------------------------------
             // Notify donor
@@ -1047,10 +1040,13 @@ namespace BloodDonationAPI.BLL.Services
 
             if (request.Status.Equals(
                     "Cancelled",
+                    StringComparison.OrdinalIgnoreCase) ||
+                request.Status.Equals(
+                    "Completed",
                     StringComparison.OrdinalIgnoreCase))
             {
                 throw new InvalidOperationException(
-                    "A cancelled blood request cannot be completed.");
+                    "This blood request is already closed.");
             }
 
             // ------------------------------------------
@@ -1099,6 +1095,19 @@ namespace BloodDonationAPI.BLL.Services
                 throw new KeyNotFoundException(
                     "Donor profile not found.");
             }
+
+            // Credit the actual donor ONLY after completion.
+            // Each completed response represents one donation event.
+            // The app currently has no field for actual donated volume,
+            // so 450 mL is an ESTIMATE per confirmed donation, not
+            // request.UnitsNeeded * 450 (which may be several donors).
+            donor.DonationsCount += 1;
+            donor.LivesSaved += 1;
+            donor.DonatedMl += 450;
+            donor.LastDonationDate = DateTime.UtcNow;
+            donor.UpdatedAt = DateTime.UtcNow;
+
+            await _userRepository.UpdateAsync(donor);
 
             // ------------------------------------------
             // Complete response
