@@ -243,38 +243,23 @@ namespace BloodDonationAPI.API.Controllers
         public async Task<IActionResult> GetResponses(Guid id)
         {
             var userId = GetCurrentUserId();
-
-            if (userId == null)
-                return Unauthorized();
+            if (userId == null) return Unauthorized();
 
             var role = GetCurrentUserRole();
-
-            var emergency =
-                await _emergencyService.GetByIdAsync(
-                    id,
-                    userId.Value,
-                    role);
-
+            var emergency = await _emergencyService.GetByIdAsync(id, userId.Value, role);
             if (emergency == null)
-            {
-                return NotFound(new
-                {
-                    message =
-                        "Emergency request not found."
-                });
-            }
+                return NotFound(new { message = "Emergency request not found." });
 
-            if (!IsAdmin(role) &&
-                emergency.ReporterUid != userId.Value)
-            {
-                return Forbid();
-            }
+            var responses = await _emergencyService.GetResponsesAsync(id);
 
-            var responses =
-                await _emergencyService
-                    .GetResponsesAsync(id);
+            // Reporter and admins can see every responder.
+            if (IsAdmin(role) || emergency.ReporterUid == userId.Value)
+                return Ok(responses);
 
-            return Ok(responses);
+            // Donors may see ONLY their own response, never other donors' details.
+            var mine = responses.Where(r => r.DonorId == userId.Value).ToList();
+            if (mine.Count == 0) return Forbid();
+            return Ok(mine);
         }
 
         // =========================================================

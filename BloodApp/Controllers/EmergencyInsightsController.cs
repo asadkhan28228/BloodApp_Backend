@@ -17,11 +17,10 @@ namespace BloodDonationAPI.API.Controllers
         private readonly AppDbContext _db;
         public EmergencyInsightsController(AppDbContext db) => _db = db;
 
-        // Only the emergency reporter and administrators can access donor locations.
         private bool IsAdmin() => User.IsInRole("admin") || User.IsInRole("bloodBankAdmin");
         private Guid? CurrentUserId()
         {
-            var value = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var value = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
             return Guid.TryParse(value, out var id) ? id : null;
         }
 
@@ -39,7 +38,6 @@ namespace BloodDonationAPI.API.Controllers
             if (!ValidCoordinate(emergency.Latitude, emergency.Longitude))
                 return BadRequest(new { message = "Emergency GPS coordinates are required." });
 
-            // Exact-group targeting only. Medical blood compatibility must be validated separately.
             var bloodGroup = emergency.BloodType.Trim().ToUpper();
             var donors = await _db.Users.AsNoTracking()
                 .Where(u => u.IsActive && u.AvailableToDonate && u.Role == "user" &&
@@ -93,7 +91,6 @@ namespace BloodDonationAPI.API.Controllers
 
             var distance = DistanceKm(response.Latitude!.Value, response.Longitude!.Value,
                 emergency.Latitude!.Value, emergency.Longitude!.Value);
-            // Deliberately not a road-route or traffic-aware ETA.
             var minutes = Math.Ceiling(distance / assumedSpeedKmh * 60);
             return Ok(new
             {
@@ -114,12 +111,21 @@ namespace BloodDonationAPI.API.Controllers
         {
             var current = CurrentUserId();
             if (current == null) return Unauthorized();
+
             var emergency = await _db.EmergencyRequests.AsNoTracking()
                 .FirstOrDefaultAsync(e => e.Id == emergencyId);
             if (emergency == null) return NotFound();
-            if (emergency.ReporterUid != current.Value && !IsAdmin()) return Forbid();
 
-            var responses = await _db.EmergencyResponses.AsNoTracking()
+            var isReporterOrAdmin = emergency.ReporterUid == current.Value || IsAdmin();
+            if (!isReporterOrAdmin)
+            {
+                // Only donors who have actually responded to this emergency may see its details.
+                var isRespondingDonor = await _db.EmergencyResponses.AsNoTracking()
+                    .AnyAsync(r => r.EmergencyRequestId == emergencyId && r.DonorId == current.Value);
+                if (!isRespondingDonor) return Forbid();
+            }
+
+            var allResponses = await _db.EmergencyResponses.AsNoTracking()
                 .Where(r => r.EmergencyRequestId == emergencyId)
                 .Select(r => new {
                     r.Id,
@@ -135,6 +141,13 @@ namespace BloodDonationAPI.API.Controllers
                     r.UpdatedAt
                 })
                 .ToListAsync();
+
+            // Aggregate counts are shared; donor identity and GPS are only exposed
+            // to reporter/admin, or to the donor who owns that response.
+            var visibleResponses = isReporterOrAdmin
+                ? allResponses
+                : allResponses.Where(r => r.DonorId == current.Value).ToList();
+
             return Ok(new
             {
                 emergency = new
@@ -149,11 +162,11 @@ namespace BloodDonationAPI.API.Controllers
                     emergency.CreatedAt,
                     emergency.ExpireAt
                 },
-                totalResponses = responses.Count,
-                onTheWay = responses.Count(r => string.Equals(r.Status, "On The Way", StringComparison.OrdinalIgnoreCase)),
-                arrived = responses.Count(r => string.Equals(r.Status, "Arrived", StringComparison.OrdinalIgnoreCase)),
-                completed = responses.Count(r => string.Equals(r.Status, "Completed", StringComparison.OrdinalIgnoreCase)),
-                responses
+                totalResponses = allResponses.Count,
+                onTheWay = allResponses.Count(r => string.Equals(r.Status, "On The Way", StringComparison.OrdinalIgnoreCase)),
+                arrived = allResponses.Count(r => string.Equals(r.Status, "Arrived", StringComparison.OrdinalIgnoreCase)),
+                completed = allResponses.Count(r => string.Equals(r.Status, "Completed", StringComparison.OrdinalIgnoreCase)),
+                responses = visibleResponses
             });
         }
 

@@ -223,8 +223,15 @@ namespace BloodDonationAPI.BLL.Services
             await _passwordResetTokenRepository
                 .AddAsync(resetToken);
 
-            // Password reset email delivery is a separate pending integration.
-            // Never log reset tokens in production.
+            // Send the reset link to the user's email. Never log reset tokens.
+            var baseUrl = _configuration["PasswordReset:BaseUrl"];
+            if (string.IsNullOrWhiteSpace(baseUrl))
+                throw new InvalidOperationException("PasswordReset:BaseUrl is required.");
+
+            var separator = baseUrl.Contains('?') ? "&" : "?";
+            var resetLink = baseUrl + separator + "token=" + Uri.EscapeDataString(token);
+
+            await _emailService.SendPasswordResetEmailAsync(user.Email, resetLink);
 
             return true;
         }
