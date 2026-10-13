@@ -4,6 +4,8 @@ using BloodDonationAPI.BLL.DTOs.User;
 using BloodDonationAPI.BLL.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
+using BloodDonationAPI.API.Hubs;
 
 namespace BloodDonationAPI.API.Controllers
 {
@@ -13,10 +15,12 @@ namespace BloodDonationAPI.API.Controllers
     public class UserController : ControllerBase
     {
         private readonly IUserService _userService;
+        private readonly IHubContext<NotificationHub> _hubContext;
 
-        public UserController(IUserService userService)
+        public UserController(IUserService userService, IHubContext<NotificationHub> hubContext)
         {
             _userService = userService;
+            _hubContext = hubContext;
         }
 
         // GET: api/user/profile
@@ -136,6 +140,8 @@ namespace BloodDonationAPI.API.Controllers
                 });
             }
 
+            var previousProfile = await _userService.GetByIdAsync(userId.Value);
+
             var result = await _userService.UpdateProfileAsync(
                 userId.Value,
                 dto);
@@ -146,6 +152,14 @@ namespace BloodDonationAPI.API.Controllers
                 {
                     message = "User profile not found."
                 });
+            }
+
+            // backendCompat.updateDoc("users") calls this endpoint for availability.
+            // Broadcast only after successful database update and only if it changed.
+            if (previousProfile != null &&
+                previousProfile.AvailableToDonate != result.AvailableToDonate)
+            {
+                await BroadcastAvailabilityAsync(userId.Value, result.AvailableToDonate);
             }
 
             return Ok(new
@@ -203,6 +217,8 @@ namespace BloodDonationAPI.API.Controllers
                 });
             }
 
+            var previousProfile = await _userService.GetByIdAsync(userId.Value);
+
             var result = await _userService.UpdateAvailabilityAsync(
                 userId.Value,
                 availableToDonate);
@@ -213,6 +229,12 @@ namespace BloodDonationAPI.API.Controllers
                 {
                     message = "User not found."
                 });
+            }
+
+            if (previousProfile != null &&
+                previousProfile.AvailableToDonate != availableToDonate)
+            {
+                await BroadcastAvailabilityAsync(userId.Value, availableToDonate);
             }
 
             return Ok(new
@@ -314,6 +336,15 @@ namespace BloodDonationAPI.API.Controllers
             return Ok(new
             {
                 message = "User activated successfully."
+            });
+        }
+
+        private Task BroadcastAvailabilityAsync(Guid userId, bool availableToDonate)
+        {
+            return _hubContext.Clients.All.SendAsync("DonorAvailabilityUpdated", new
+            {
+                userId = userId.ToString(),
+                availableToDonate
             });
         }
 
